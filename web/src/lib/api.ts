@@ -5,6 +5,22 @@ export type Capabilities = {
   parity?: { read: boolean; start: boolean; cancel: boolean };
 };
 
+export type SystemSnapshot = {
+  timestamp: string;
+  available: boolean;
+  reason?: string;
+  hostname: string;
+  uptimeSeconds: number | null;
+  cpuUsage: number | null;
+  cpuTemperature: number | null;
+  memoryUsedBytes: number;
+  memoryTotalBytes: number;
+  networkInterface: string;
+  networkRXRate: number | null;
+  networkTXRate: number | null;
+  diagnostics: Record<string, string>;
+};
+
 type ErrorPayload = {
   error?: {
     code?: string;
@@ -14,14 +30,22 @@ type ErrorPayload = {
   };
 };
 
-type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type Fetcher = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response>;
 
 export class ApiError extends Error {
   readonly code: string;
   readonly details?: string;
   readonly retryable: boolean;
 
-  constructor(code: string, message: string, retryable: boolean, details?: string) {
+  constructor(
+    code: string,
+    message: string,
+    retryable: boolean,
+    details?: string,
+  ) {
     super(message);
     this.name = "ApiError";
     this.code = code;
@@ -30,10 +54,31 @@ export class ApiError extends Error {
   }
 }
 
-export async function getCapabilities(fetcher: Fetcher = fetch): Promise<Capabilities> {
-  const response = await fetcher("/api/v1/capabilities", {
+export async function getCapabilities(
+  fetcher: Fetcher = fetch,
+): Promise<Capabilities> {
+  return request<Capabilities>("/api/v1/capabilities", fetcher, {
     headers: { Accept: "application/json" },
   });
+}
+
+export async function getSystem(
+  signal?: AbortSignal,
+  fetcher: Fetcher = fetch,
+): Promise<SystemSnapshot> {
+  return request<SystemSnapshot>("/api/v1/system", fetcher, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+    signal,
+  });
+}
+
+async function request<T>(
+  path: string,
+  fetcher: Fetcher,
+  init: RequestInit,
+): Promise<T> {
+  const response = await fetcher(path, init);
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as ErrorPayload;
@@ -46,5 +91,5 @@ export async function getCapabilities(fetcher: Fetcher = fetch): Promise<Capabil
     );
   }
 
-  return (await response.json()) as Capabilities;
+  return (await response.json()) as T;
 }

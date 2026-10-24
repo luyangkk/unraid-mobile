@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
+	systemadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/system"
 	"github.com/unraid-mobile/unraid-mobile/internal/api"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/capability"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/operation"
+	"github.com/unraid-mobile/unraid-mobile/internal/app/system"
 )
 
 // web contains the Vite build output. Docker replaces this development
@@ -25,9 +30,16 @@ func main() {
 		address = ":8080"
 	}
 
-	// Host adapters are introduced only after the Host Capability Spike. Until
-	// then every write capability stays unavailable by default.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	reader := systemadapter.NewReader(os.DirFS("/host"))
+	reader.Hostname = os.Getenv("SERVER_NAME")
+	metrics := system.NewService(reader, time.Now)
+	metrics.Collect(ctx)
+	go metrics.Run(ctx)
+	// Write capabilities stay unavailable until verified on the target host.
 	apiHandler := api.NewServer(api.Config{
+		System:       metrics,
 		Capabilities: capability.Set{},
 		Operations:   operation.NewStore(time.Now),
 	})
@@ -47,6 +59,14 @@ func main() {
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
+	go func() {
+		<-ctx.Done()
+		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdown)
+	}()
 	log.Printf("Unraid Mobile listening on %s", address)
-	log.Fatal(server.ListenAndServe())
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
 }

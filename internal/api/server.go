@@ -8,9 +8,11 @@ import (
 
 	"github.com/unraid-mobile/unraid-mobile/internal/app/capability"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/operation"
+	"github.com/unraid-mobile/unraid-mobile/internal/app/system"
 )
 
 type Config struct {
+	System          *system.Service
 	Capabilities    capability.Set
 	Operations      *operation.Store
 	ContainerExists func(id string) bool
@@ -23,6 +25,12 @@ func NewServer(config Config) http.Handler {
 	})
 	mux.HandleFunc("GET /api/v1/capabilities", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, config.Capabilities)
+	})
+	mux.HandleFunc("GET /api/v1/system", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, systemSnapshot(config.System))
+	})
+	mux.HandleFunc("GET /api/v1/events", func(w http.ResponseWriter, r *http.Request) {
+		handleSystemEvents(w, r, config.System)
 	})
 	mux.HandleFunc("POST /api/v1/docker/", func(w http.ResponseWriter, r *http.Request) {
 		handleDockerAction(w, r, config)

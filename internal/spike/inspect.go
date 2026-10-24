@@ -8,7 +8,7 @@ import "sort"
 const (
 	HostProcStat    = "/host/proc/stat"
 	HostProcMemInfo = "/host/proc/meminfo"
-	HostProcNetDev  = "/host/proc/net/dev"
+	HostProcNetDev  = "/host/proc/1/net/dev"
 	HostSysThermal  = "/host/sys/class/thermal"
 	DockerSocket    = "/var/run/docker.sock"
 	LibvirtSocket   = "/var/run/libvirt/libvirt-sock"

@@ -72,7 +72,7 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/luyangkk/unraid-mobile
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.description=Unraid Mobile development preview
+            org.opencontainers.image.description=Unraid Mobile read-only live system metrics
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Check container health and embedded frontend

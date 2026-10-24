@@ -66,7 +66,7 @@ Btrfs, effective capacity follows Unraid's display convention: used plus free.
 Stopped arrays and incomplete/invalid capacity metadata are shown as unknown.
 Pools, temperatures, disk power state and parity progress reflect reported
 metadata, not inferred health. A spun-down disk reports no live temperature by
-design, so the UI shows `Spun down` and does not wake it for a SMART reading.
+design, so the UI shows `Standby` and does not wake it for a SMART reading.
 Host diskstats sector counters use 512-byte units; rates reset after
 errors, counter resets or disk replacement. Storage snapshots refresh every two
 seconds while the page is visible. Missing metadata shows the exact required

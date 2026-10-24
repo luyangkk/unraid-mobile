@@ -132,11 +132,11 @@ function powerStateLabel(
 ) {
   switch (state) {
     case "active":
-      return "Spun up";
+      return "Active";
     case "standby":
-      return "Spun down";
+      return "Standby";
     default:
-      return "Power state unknown";
+      return "Unknown";
   }
 }
 

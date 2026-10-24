@@ -60,13 +60,13 @@ it("shows real array capacity, pool capacity and disk details", () => {
     "xfs",
     "started",
     "idle",
-    "Spun up",
+    "Active",
     "Temp 35 °C",
   ])
     expect(html).toContain(value);
   expect(html).not.toContain("Adapter not connected");
 });
-it("explains that a spun-down disk has no live temperature", () => {
+it("explains that a standby disk has no live temperature", () => {
   const html = renderToStaticMarkup(
     <StoragePanel
       snapshot={{
@@ -81,9 +81,10 @@ it("explains that a spun-down disk has no live temperature", () => {
       }}
     />,
   );
-  expect(html).toContain("Spun down");
+  expect(html).toContain("Standby");
   expect(html).toContain("Temp —");
   expect(html).not.toContain("Temperature unavailable");
+  expect(html).not.toContain("Spun down");
 });
 it("distinguishes missing metadata, unknown capacity and an empty configuration", () => {
   const missing = renderToStaticMarkup(

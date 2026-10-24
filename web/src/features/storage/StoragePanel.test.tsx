@@ -36,6 +36,7 @@ const sample: StorageSnapshot = {
       device: "sdb",
       role: "data",
       status: "DISK_OK",
+      powerState: "active",
       filesystem: "xfs",
       filesystemStatus: "Mounted",
       sizeBytes: 10737418240,
@@ -59,9 +60,30 @@ it("shows real array capacity, pool capacity and disk details", () => {
     "xfs",
     "started",
     "idle",
+    "Spun up",
+    "Temp 35 °C",
   ])
     expect(html).toContain(value);
   expect(html).not.toContain("Adapter not connected");
+});
+it("explains that a spun-down disk has no live temperature", () => {
+  const html = renderToStaticMarkup(
+    <StoragePanel
+      snapshot={{
+        ...sample,
+        disks: [
+          {
+            ...sample.disks[0],
+            powerState: "standby",
+            temperature: null,
+          },
+        ],
+      }}
+    />,
+  );
+  expect(html).toContain("Spun down");
+  expect(html).toContain("Temp —");
+  expect(html).not.toContain("Temperature unavailable");
 });
 it("distinguishes missing metadata, unknown capacity and an empty configuration", () => {
   const missing = renderToStaticMarkup(

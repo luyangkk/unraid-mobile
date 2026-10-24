@@ -15,7 +15,7 @@ import (
 type storageProvider struct{}
 
 func (storageProvider) Read(context.Context) (storage.Snapshot, error) {
-	return storage.Snapshot{Array: storage.Array{State: "started", DiskCount: 1, Capacity: &storage.Capacity{TotalBytes: 10240, UsedBytes: 6144, FreeBytes: 4096}}, Parity: storage.Parity{State: "idle"}, Disks: []storage.Disk{{Name: "disk1", Identity: "private-serial", Temperature: floatPtr(35), Counters: &storage.Counters{ReadBytes: 10}}}}, nil
+	return storage.Snapshot{Array: storage.Array{State: "started", DiskCount: 1, Capacity: &storage.Capacity{TotalBytes: 10240, UsedBytes: 6144, FreeBytes: 4096}}, Parity: storage.Parity{State: "idle"}, Disks: []storage.Disk{{Name: "disk1", PowerState: "active", Identity: "private-serial", Temperature: floatPtr(35), Counters: &storage.Counters{ReadBytes: 10}}}}, nil
 }
 func floatPtr(v float64) *float64 { return &v }
 func TestStorageEndpoint(t *testing.T) {
@@ -38,6 +38,9 @@ func TestStorageEndpoint(t *testing.T) {
 			}
 			if strings.Contains(rr.Body.String(), "private-serial") || strings.Contains(rr.Body.String(), "Counters") {
 				t.Fatal("private internal metadata leaked")
+			}
+			if ready && !strings.Contains(rr.Body.String(), `"powerState":"active"`) {
+				t.Fatalf("power state missing: %s", rr.Body.String())
 			}
 			capResponse := httptest.NewRecorder()
 			handler.ServeHTTP(capResponse, httptest.NewRequest(http.MethodGet, "/api/v1/capabilities", nil))

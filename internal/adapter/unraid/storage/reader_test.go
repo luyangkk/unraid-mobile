@@ -13,6 +13,7 @@ device="sda"
 type="Parity"
 status="DISK_OK"
 size="20000"
+spundown="0"
 temp="35"
 ["disk1"]
 name="disk1"
@@ -20,6 +21,7 @@ device="sdb"
 type="Data"
 status="DISK_OK"
 size="10000"
+spundown="0"
 temp="31"
 fsType="xfs"
 fsStatus="Mounted"
@@ -32,6 +34,7 @@ device="sdc"
 type="Data"
 status="DISK_OK"
 size="10000"
+spundown="1"
 temp="*"
 fsType="xfs"
 fsStatus="Mounted"
@@ -48,6 +51,7 @@ name="cache"
 device="nvme0n1"
 type="Cache"
 status="DISK_OK"
+spundown="0"
 fsType="btrfs"
 fsStatus="Mounted"
 fsSize="3000"
@@ -102,16 +106,29 @@ func TestReaderRead(t *testing.T) {
 		for _, d := range got.Disks {
 			if d.Name == "disk1" {
 				found = true
-				if d.Counters == nil || d.Counters.ReadBytes != 100*512 || d.Temperature == nil || *d.Temperature != 31 {
+				if d.PowerState != "active" || d.Counters == nil || d.Counters.ReadBytes != 100*512 || d.Temperature == nil || *d.Temperature != 31 {
 					t.Fatalf("disk1 = %+v", d)
 				}
 			}
-			if d.Name == "disk2" && d.Temperature != nil {
-				t.Fatal("sleeping disk temp must be unknown")
+			if d.Name == "disk2" && (d.PowerState != "standby" || d.Temperature != nil) {
+				t.Fatalf("sleeping disk = %+v", d)
 			}
 		}
 		if !found {
 			t.Fatal("missing disk1")
+		}
+	})
+	t.Run("unknown spindown metadata stays unknown", func(t *testing.T) {
+		f := filesFixture()
+		f["var/local/emhttp/disks.ini"] = &fstest.MapFile{Data: []byte(strings.Replace(disksFixture, "spundown=\"0\"\ntemp=\"31\"", "spundown=\"unexpected\"\ntemp=\"31\"", 1))}
+		got, err := NewReader(f).Read(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, disk := range got.Disks {
+			if disk.Name == "disk1" && disk.PowerState != "unknown" {
+				t.Fatalf("power state = %q", disk.PowerState)
+			}
 		}
 	})
 	t.Run("missing mount has an actionable error", func(t *testing.T) {

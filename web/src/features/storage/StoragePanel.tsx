@@ -75,10 +75,8 @@ export function StoragePanel({
                   <span>
                     {disk.name} · {disk.role}
                   </span>
-                  <span>
-                    {disk.temperature === null
-                      ? "Temperature unavailable"
-                      : `${disk.temperature.toFixed(0)} °C`}
+                  <span className={powerStateClass(disk.powerState)}>
+                    {powerStateLabel(disk.powerState)}
                   </span>
                 </div>
                 <p className="mt-1 break-words text-xs text-slate-400">
@@ -95,9 +93,17 @@ export function StoragePanel({
                     · {disk.filesystemStatus || "Filesystem unavailable"}
                   </p>
                 )}
-                <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-slate-400">
+                <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-slate-400">
+                  <span>
+                    Temp{" "}
+                    {disk.temperature === null
+                      ? "—"
+                      : `${disk.temperature.toFixed(0)} °C`}
+                  </span>
                   <span>Read {formatRate(disk.readBytesPerSecond)}</span>
-                  <span>Write {formatRate(disk.writeBytesPerSecond)}</span>
+                  <span className="text-right">
+                    Write {formatRate(disk.writeBytesPerSecond)}
+                  </span>
                 </div>
               </article>
             ))}
@@ -120,6 +126,30 @@ export function StoragePanel({
     </section>
   );
 }
+
+function powerStateLabel(
+  state: StorageSnapshot["disks"][number]["powerState"],
+) {
+  switch (state) {
+    case "active":
+      return "Spun up";
+    case "standby":
+      return "Spun down";
+    default:
+      return "Power state unknown";
+  }
+}
+
+function powerStateClass(
+  state: StorageSnapshot["disks"][number]["powerState"],
+) {
+  return state === "active"
+    ? "text-emerald-300"
+    : state === "standby"
+      ? "text-slate-400"
+      : "text-amber-200";
+}
+
 function Capacity({ capacity }: { capacity: StorageCapacity | null }) {
   if (!capacity)
     return <p className="mt-2 text-sm text-slate-400">Capacity unavailable</p>;

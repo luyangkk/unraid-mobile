@@ -75,7 +75,7 @@ func (r *Reader) Read(ctx context.Context) (domain.Snapshot, error) {
 		if entry["device"] == "" && entry["id"] == "" && entry["idSb"] == "" && (entry["status"] == "DISK_NP" || entry["status"] == "DISK_NP_DSBL") {
 			continue
 		}
-		disk := domain.Disk{Name: name, Device: entry["device"], Identity: entry["id"], Role: role, Status: entry["status"], Filesystem: entry["fsType"], FilesystemStatus: entry["fsStatus"], SizeBytes: kib(entry["size"])}
+		disk := domain.Disk{Name: name, Device: entry["device"], Identity: entry["id"], Role: role, Status: entry["status"], PowerState: powerState(entry["spundown"]), Filesystem: entry["fsType"], FilesystemStatus: entry["fsStatus"], SizeBytes: kib(entry["size"])}
 		if temp, err := strconv.ParseFloat(entry["temp"], 64); err == nil && !math.IsNaN(temp) && !math.IsInf(temp, 0) && temp >= 0 && temp <= 150 {
 			disk.Temperature = &temp
 		}
@@ -154,6 +154,17 @@ func (r *Reader) Read(ctx context.Context) (domain.Snapshot, error) {
 		}
 	}
 	return result, nil
+}
+
+func powerState(spundown string) string {
+	switch spundown {
+	case "0":
+		return "active"
+	case "1":
+		return "standby"
+	default:
+		return "unknown"
+	}
 }
 
 func kib(text string) *uint64 {

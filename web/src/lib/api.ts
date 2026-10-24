@@ -46,6 +46,7 @@ export type StorageSnapshot = {
     role: string;
     pool?: string;
     status: string;
+    powerState: "active" | "standby" | "unknown";
     filesystem: string;
     filesystemStatus: string;
     sizeBytes: number | null;

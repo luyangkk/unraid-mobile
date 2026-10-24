@@ -37,6 +37,7 @@ type Disk struct {
 	Role                string    `json:"role"`
 	Pool                string    `json:"pool,omitempty"`
 	Status              string    `json:"status"`
+	PowerState          string    `json:"powerState"`
 	Filesystem          string    `json:"filesystem"`
 	FilesystemStatus    string    `json:"filesystemStatus"`
 	SizeBytes           *uint64   `json:"sizeBytes"`

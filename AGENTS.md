@@ -27,7 +27,7 @@
 - `spundown=0/1/其他` 对应 `active/standby/unknown`，UI 显示 `Active/Standby/Unknown`。休眠盘温度为 `null`，显示 `Temp —`，不得为取温度唤醒磁盘。
 - API 前缀 `/api/v1`，JSON 使用 camelCase，容量/速率传字节数及字节每秒，时间为 RFC 3339 UTC。采集不可用仍返回 HTTP `200`，用 `available=false`、`reason` 表达；可选指标缺失用 `null` 和 diagnostics，不使整个 System 不可用。
 - 请求错误统一为 `{ error: { code, message, retryable } }`，前端通过 `ApiError` 展示 message；details 为客户端支持的可选字段。`GET /healthz` 仅表示进程存活，返回 `204`，不检查外部依赖。
-- 当前 SSE 仅发送 `system.metrics` 完整 System 快照；保留禁止缓存/代理缓冲、15 秒注释心跳及写超时。慢订阅只保留最新样本，退出时释放订阅，不阻塞采样。
+- 当前 SSE 发送 `system.metrics` 和 `operation.updated` 完整快照；保留禁止缓存/代理缓冲、15 秒注释心跳及写超时。两类订阅各自只保留最新更新，退出时全部注销，不阻塞采样；Operation 不重放历史，重连后按 ID 查询。
 - Docker 每两秒后台读取 Engine API 并缓存，`GET /docker` 不触发采样。列表获取全部容器，运行中的容器读取 inspect 和非流式 stats；局部统计失败保留容器行。CPU/网络使用相邻有效计数器，首次、重启、回退或恢复时速率为 `null`；内存从 usage 扣除 inactive_file（cgroup v1 回退 cache）。不返回完整 inspect、环境变量或 labels。
 
 ## 前端与交互
@@ -43,7 +43,7 @@
 
 - 禁止任意命令、文件读写和 URL 代理。系统命令及参数必须由服务端静态定义；后续 Docker 使用 Engine API、VM 使用受控 libvirt 客户端，不解析 CLI 或接受任意 XML。
 - 后续写操作须在服务端校验资源、能力、状态与权限，再创建异步 Operation；执行前再次校验。同一资源的 `pending/running` 操作互斥，`202 accepted` 仅表示受理，结果必须由执行和观察确认。
-- Operation 仅存内存，终态释放资源；重启后以资源快照恢复状态，不能将丢失的操作误报失败。当前没有操作查询/事件接口或保留条数、时长的淘汰机制。
+- Operation 仅存内存，终态立即释放资源且不可再次转换；`running` 可更新 `0–100` 的有限进度，未知用 `null`。终态最多保留 100 条、最长 24 小时，按结束时间淘汰，活跃记录不淘汰；查询和变更时清理，生产通过 `Run(ctx)` 定时清理闲置记录。`GET /operations/{operationId}` 只查询单条，不提供列表或客户端修改/取消。重启后以资源快照恢复状态，不能将丢失的操作误报失败。
 - `capabilities.docker` 只表达读取可用性；`dockerActions.start/stop/restart` 为显式写能力，默认全关闭。`Allows` 必须同时检查读取可用和对应动作权限，不能因为读取接通就返回 `202`。
 - API 仅返回白名单字段；日志不记录令牌、CSRF、磁盘序列号等敏感元数据。
 

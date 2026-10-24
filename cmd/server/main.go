@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
+	"strings"
 	"syscall"
 	"time"
 
@@ -58,13 +60,15 @@ func main() {
 		vmMetrics.Collect(ctx)
 		vmMetrics.Run(ctx)
 	}()
+	operations := operation.NewStore(time.Now)
+	go operations.Run(ctx)
 	apiHandler := api.NewServer(api.Config{
 		VM:           vmMetrics,
 		Docker:       dockerMetrics,
 		System:       metrics,
 		Storage:      storageMetrics,
 		Capabilities: capability.Set{},
-		Operations:   operation.NewStore(time.Now),
+		Operations:   operations,
 	})
 
 	staticFiles, err := fs.Sub(webFiles, "web")
@@ -79,7 +83,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              address,
-		Handler:           mux,
+		Handler:           routeAPIRequests(apiHandler, mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	go func() {
@@ -92,6 +96,18 @@ func main() {
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+}
+
+// routeAPIRequests preserves original API paths for validation before the
+// static mux can redirect repeated separators or dot segments.
+func routeAPIRequests(apiHandler, fallback http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(path.Clean(r.URL.Path), "/api/") {
+			apiHandler.ServeHTTP(w, r)
+			return
+		}
+		fallback.ServeHTTP(w, r)
+	})
 }
 
 // VM reads remain opt-in until target-host compatibility has been verified.

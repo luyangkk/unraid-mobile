@@ -180,6 +180,37 @@ Validate with `curl -i http://10.0.0.66:18080/healthz` (expected 204),
 `curl http://10.0.0.66:18080/api/v1/docker` (check `available` and diagnostics), and
 `docker logs --tail 50 unraid-mobile`.
 
+## Operation infrastructure
+
+`GET /api/v1/operations/{operationId}` returns a complete in-memory Operation.
+Unknown or expired IDs return `404 OPERATION_NOT_FOUND`; a missing Store returns
+`503 OPERATIONS_UNAVAILABLE`. Malformed paths return `404 ROUTE_NOT_FOUND`.
+Unknown progress is explicitly `null`. Running operations may report finite
+progress from 0 to 100, and failed results may include a structured error.
+
+`GET /api/v1/events` retains `system.metrics` and additionally publishes
+`operation.updated` after creation, lifecycle transitions and progress changes.
+Every event contains a full snapshot. Each source has an independent
+capacity-one subscription; slow clients retain only the latest update.
+Disconnects and write failures release both subscriptions. The existing
+15-second comment heartbeat, no-cache/no-buffer headers and write deadlines
+remain in place. Operations have no historical event replay: clients query
+their known IDs after reconnecting.
+
+Only one pending/running operation can reserve a resource. Terminal results
+immediately release it and cannot transition again. At most 100 terminal
+records are retained, each for at most 24 hours from completion; the oldest
+endedAt is evicted first. Active operations are exempt from eviction. Queries
+and changes prune expired records, and a context-owned timer cleans up idle
+records. The Store does not persist or restore operations after restart;
+clients recover actual resource state from fresh resource snapshots.
+
+This infrastructure has no executor and performs no host writes. Production
+Docker start/stop/restart capabilities remain false and POST requests are
+rejected. Tests explicitly enable fake capabilities to create pending records;
+those records never execute automatically. No operation list, client
+mutation/cancellation endpoints or UI controls are provided.
+
 ## Publishing and updating
 
 Pushing to `main` or manually running the workflow on `main` runs Go tests,

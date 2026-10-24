@@ -72,7 +72,7 @@ func NewServer(config Config) http.Handler {
 		writeJSON(w, http.StatusOK, systemSnapshot(config.System))
 	})
 	mux.HandleFunc("GET /api/v1/events", func(w http.ResponseWriter, r *http.Request) {
-		handleSystemEvents(w, r, config.System)
+		handleEvents(w, r, config.System, config.Operations)
 	})
 	mux.HandleFunc("POST /api/v1/docker/", func(w http.ResponseWriter, r *http.Request) {
 		handleDockerAction(w, r, config)
@@ -80,7 +80,13 @@ func NewServer(config Config) http.Handler {
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "ROUTE_NOT_FOUND", "Route not found", false)
 	})
-	return mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isOperationPath(r.URL.Path) {
+			handleOperationQuery(w, r, config.Operations)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
 }
 
 // handleDockerAction validates resource and explicit write flags before acceptance.

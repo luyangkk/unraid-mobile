@@ -2,15 +2,15 @@
 
 Mobile-first console for a single Unraid server, built with Go and React.
 
-**Current status: read-only system, storage and Docker preview.** The image shows host CPU,
+**Current status: read-only system, storage, Docker and VM preview.** The image shows host CPU,
 memory, default-route network rates, uptime and recognized CPU sensors. Metrics
 are sampled every second and delivered through REST snapshots and SSE. The CPU
 trend keeps at most 60 points in browser memory. Initial/invalid rate samples
 are unknown, not zero. Storage shows Array/Parity state, per-filesystem capacity,
 pools, disk temperature and physical-device I/O from Unraid metadata and procfs.
 Docker shows all containers, their actual states, CPU, working-set memory,
-uptime and network rates when the Engine socket is mounted. VM/Docker control
-and authentication are not implemented; write capabilities
+uptime and network rates when the Engine socket is mounted. VM preview reads
+domain state and assigned CPU/RAM through the libvirt read-only socket. VM/Docker control and authentication are not implemented; write capabilities
 remain disabled.
 
 ## Install the prebuilt image on Unraid
@@ -40,6 +40,8 @@ In Unraid **Docker → Add Container**, use:
 | Path (read-only) | `/sys` on host → `/host/sys` in container |
 | Path (read-only) | `/var/local/emhttp` on host → `/host/var/local/emhttp` in container |
 | Path (optional, read-only) | `/var/run/docker.sock` on host → `/var/run/docker.sock` in container |
+| Path (optional, read-only) | `/var/run/libvirt` on host → `/var/run/libvirt` in container (requires `libvirt-sock-ro`) |
+| Variable (optional) | `VM_READ_ENABLED=false` (default; enable only for target-host validation) |
 | Variable (optional) | `SERVER_NAME=Tower` |
 
 Click Apply and open `http://10.0.0.66:18080`. Keep Privileged off; system metrics
@@ -80,6 +82,41 @@ read-only; this application sends only fixed Engine read requests. Existing
 Unraid installations must add the optional socket mount manually after updating
 the image. Real host compatibility and metric comparisons still need to be
 verified on the target Unraid system.
+
+VM preview is disabled by default because real-host compatibility is unverified.
+For an authorized validation host, set `VM_READ_ENABLED=true` explicitly and add
+the optional libvirt directory mount. Other values leave collection disabled;
+no libvirt connection is attempted. This setting enables reads only.
+
+When enabled, VM snapshots are sampled every three seconds and served from
+`GET /api/v1/vms`. The page polls while visible, refreshes on returning to the
+foreground, cancels abandoned requests and retains the last sample on request
+failure. Cards show Running, collapsed Stopped (shut off), and Other states such
+as paused, shutting down, crashed or suspended. Assigned vCPUs and RAM come from
+selected live domain XML fields (`vcpu` current count and `currentMemory`, with
+`memory` as fallback), not runtime CPU or memory usage. XML and private device
+paths never leave the adapter. Missing per-domain details keep the VM visible
+with unknown fields and diagnostics.
+
+The pure Go libvirt client connects only to
+`/var/run/libvirt/libvirt-sock-ro` with the fixed `qemu:///system` URI. There is
+no fallback to the writable socket, shell commands or network endpoints. Mount
+`/var/run/libvirt` read-only rather than an individual socket so daemon socket
+recreation can recover on the next sample. If the host does not expose a
+read-only socket or permissions deny access, the VM panel remains unavailable.
+A read-only directory mount alone does not restrict socket API permissions;
+the application uses only the read-only endpoint and fixed read calls. Each
+sample has a six-second deadline and a 1,024-domain limit.
+
+Uptime is currently `null`: the queried libvirt APIs do not expose a reliable
+boot timestamp, and accumulated vCPU time must not be presented as elapsed
+uptime. `capabilities.vm` expresses successful reads only;
+`vmActions.start/stop/forceStop` remain false and VM action routes are not
+implemented. This preview has synthetic protocol/unit coverage, but has not
+been validated against a real Unraid libvirt daemon. Validate the socket,
+permissions, domain list, state and assigned resources on the target host
+before treating it as supported. Existing installations must add the optional
+libvirt directory mount manually.
 
 Missing mounts, missing sensors or host-network permission errors are shown as
 unavailable data with diagnostics. Network rates use the lowest-metric active
@@ -129,7 +166,10 @@ docker run -d --name unraid-mobile \
   ghcr.io/luyangkk/unraid-mobile:latest
 ```
 
-Omit the optional socket mount if Docker display is not needed.
+Omit the optional Docker socket mount if Docker display is not needed. For VM
+preview, add `--mount type=bind,src=/var/run/libvirt,dst=/var/run/libvirt,readonly`
+only when the host exposes `libvirt-sock-ro`, together with `-e VM_READ_ENABLED=true`
+for target-host validation.
 
 Validate with `curl -i http://10.0.0.66:18080/healthz` (expected 204),
 `curl http://10.0.0.66:18080/api/v1/docker` (check `available` and diagnostics), and

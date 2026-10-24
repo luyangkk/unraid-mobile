@@ -6,6 +6,7 @@ type Set struct {
 	Docker        bool          `json:"docker"`
 	DockerActions DockerActions `json:"dockerActions"`
 	VM            bool          `json:"vm"`
+	VMActions     VMActions     `json:"vmActions"`
 	Array         Array         `json:"array"`
 	Parity        Parity        `json:"parity"`
 	Storage       Storage       `json:"storage"`
@@ -15,6 +16,12 @@ type DockerActions struct {
 	Start   bool `json:"start"`
 	Stop    bool `json:"stop"`
 	Restart bool `json:"restart"`
+}
+
+type VMActions struct {
+	Start     bool `json:"start"`
+	Stop      bool `json:"stop"`
+	ForceStop bool `json:"forceStop"`
 }
 
 type Array struct {
@@ -44,7 +51,9 @@ func (s Set) Allows(resource, action string) bool {
 			(action == "stop" && s.DockerActions.Stop) ||
 			(action == "restart" && s.DockerActions.Restart))
 	case "vm":
-		return s.VM && (action == "start" || action == "stop" || action == "force-stop")
+		return s.VM && ((action == "start" && s.VMActions.Start) ||
+			(action == "stop" && s.VMActions.Stop) ||
+			(action == "force-stop" && s.VMActions.ForceStop))
 	case "array":
 		return (action == "start" && s.Array.Start) || (action == "stop" && s.Array.Stop)
 	case "parity":

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	dockeradapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/docker"
+	vmadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/libvirt"
 	systemadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/system"
 	storageadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/unraid/storage"
 	"github.com/unraid-mobile/unraid-mobile/internal/api"
@@ -20,6 +21,7 @@ import (
 	"github.com/unraid-mobile/unraid-mobile/internal/app/operation"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/storage"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/system"
+	"github.com/unraid-mobile/unraid-mobile/internal/app/vm"
 )
 
 // web contains the Vite build output. Docker replaces this development
@@ -51,7 +53,13 @@ func main() {
 		dockerMetrics.Run(ctx)
 	}()
 	// Write capabilities stay unavailable until verified on the target host.
+	vmMetrics := vm.NewService(vmReaderFromEnvironment(), time.Now)
+	go func() {
+		vmMetrics.Collect(ctx)
+		vmMetrics.Run(ctx)
+	}()
 	apiHandler := api.NewServer(api.Config{
+		VM:           vmMetrics,
 		Docker:       dockerMetrics,
 		System:       metrics,
 		Storage:      storageMetrics,
@@ -84,4 +92,12 @@ func main() {
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+}
+
+// VM reads remain opt-in until target-host compatibility has been verified.
+func vmReaderFromEnvironment() vm.Reader {
+	if os.Getenv("VM_READ_ENABLED") != "true" {
+		return nil
+	}
+	return vmadapter.NewReader()
 }

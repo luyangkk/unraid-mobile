@@ -3,6 +3,7 @@ import {
   appendPoint,
   formatBytes,
   formatRate,
+  formatUptime,
   connectionLabel,
 } from "./system";
 
@@ -11,6 +12,15 @@ describe("system presentation", () => {
     expect(formatBytes(1073741824)).toBe("1.0 GiB");
     expect(formatRate(1048576)).toBe("1.0 MiB/s");
     expect(formatRate(null)).toBe("—");
+  });
+  it("formats elapsed uptime without inventing missing or invalid data", () => {
+    expect(formatUptime(null)).toBe("—");
+    expect(formatUptime(-1)).toBe("—");
+    expect(formatUptime(NaN)).toBe("—");
+    expect(formatUptime(0)).toBe("<1m");
+    expect(formatUptime(120)).toBe("2m");
+    expect(formatUptime(23040)).toBe("6h 24m");
+    expect(formatUptime(93600)).toBe("1d 2h");
   });
   it("bounds trends and replaces duplicate samples", () => {
     let points: { timestamp: string; value: number }[] = [];

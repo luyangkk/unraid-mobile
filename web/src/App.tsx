@@ -1,15 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, RefreshCw } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "./components/ui/button";
 import { SystemPanel } from "./features/system/SystemPanel";
 import { StoragePanel } from "./features/storage/StoragePanel";
 import { DockerPanel } from "./features/docker/DockerPanel";
+import { VMPanel } from "./features/vm/VMPanel";
 import {
   getCapabilities,
   getSystem,
   getStorage,
   getDocker,
+  getVMs,
   type SystemSnapshot,
 } from "./lib/api";
 import { subscribeSystem } from "./lib/stream";
@@ -22,7 +24,7 @@ import {
 
 const systemKey = ["system"] as const;
 
-// App coordinates live System data and cached Docker/Storage snapshots.
+// App coordinates live System data and cached Docker/VM/Storage snapshots.
 function App() {
   const queryClient = useQueryClient();
   const { data: snapshot } = useQuery<SystemSnapshot>({
@@ -46,6 +48,13 @@ function App() {
     queryKey: ["docker"],
     queryFn: ({ signal }) => getDocker(signal),
     refetchInterval: 2000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: "always",
+  });
+  const vms = useQuery({
+    queryKey: ["vms"],
+    queryFn: ({ signal }) => getVMs(signal),
+    refetchInterval: 3000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: "always",
   });
@@ -111,6 +120,7 @@ function App() {
             void capabilities.refetch();
             void storage.refetch();
             void docker.refetch();
+            void vms.refetch();
           }}
         >
           <RefreshCw
@@ -160,17 +170,14 @@ function App() {
             </p>
           </section>
         )}
-        <StatusCard
-          icon={<Activity aria-hidden="true" />}
-          title="VM"
-          detail={
-            capabilities.error
-              ? "Capabilities unavailable"
-              : capabilities.data?.vm
-                ? "Available"
-                : "Adapter not connected"
-          }
-        />
+        {vms.data ? (
+          <VMPanel snapshot={vms.data} stale={vms.isError || vms.isPaused} errorMessage={vms.error?.message} />
+        ) : (
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-lg font-semibold">VM</h2>
+            <p className="mt-2 text-sm text-slate-400" role="status">{vms.error ? vms.error.message : "Loading virtual machines…"}</p>
+          </section>
+        )}
         {storage.data ? (
           <StoragePanel snapshot={storage.data} stale={storage.isError} />
         ) : (
@@ -183,27 +190,6 @@ function App() {
         )}
       </div>
     </main>
-  );
-}
-function StatusCard({
-  icon,
-  title,
-  detail,
-}: {
-  icon: ReactNode;
-  title: string;
-  detail: string;
-}) {
-  return (
-    <article className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-4">
-      <div className="grid size-11 place-items-center rounded-xl bg-slate-800 text-cyan-300">
-        {icon}
-      </div>
-      <div>
-        <h2 className="font-semibold">{title}</h2>
-        <p className="mt-0.5 text-sm text-slate-400">{detail}</p>
-      </div>
-    </article>
   );
 }
 export default App;

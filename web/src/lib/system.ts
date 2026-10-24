@@ -20,6 +20,15 @@ export function formatBytes(bytes: number): string {
 export function formatRate(value: number | null): string {
   return value === null ? "—" : `${formatBytes(value)}/s`;
 }
+export function formatUptime(seconds: number | null): string {
+  if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return "—";
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  if (days > 0) return `${days}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  return minutes > 0 ? `${minutes}m` : "<1m";
+}
 export function connectionLabel(
   connection: Connection,
   available: boolean,

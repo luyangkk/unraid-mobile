@@ -2,6 +2,30 @@ package capability
 
 import "testing"
 
+func TestVMReadDoesNotAllowWrites(t *testing.T) {
+	set := Set{VM: true}
+	for _, action := range []string{"start", "stop", "force-stop"} {
+		if set.Allows("vm", action) {
+			t.Fatalf("read capability enabled %s", action)
+		}
+	}
+}
+
+func TestVMActionFlagsRequireReadAvailability(t *testing.T) {
+	set := Set{VMActions: VMActions{Start: true, Stop: true, ForceStop: true}}
+	for _, available := range []bool{false, true} {
+		set.VM = available
+		for _, action := range []string{"start", "stop", "force-stop"} {
+			if set.Allows("vm", action) != available {
+				t.Fatalf("read=%v action=%s", available, action)
+			}
+		}
+		if set.Allows("vm", "destroy") {
+			t.Fatal("accepted non-public action")
+		}
+	}
+}
+
 // TestDockerReadDoesNotAllowWrites separates read availability from action permissions.
 func TestDockerReadDoesNotAllowWrites(t *testing.T) {
 	set := Set{Docker: true}

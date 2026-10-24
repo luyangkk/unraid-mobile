@@ -2,6 +2,7 @@ export type Capabilities = {
   docker: boolean;
   dockerActions?: { start: boolean; stop: boolean; restart: boolean };
   vm: boolean;
+  vmActions?: { start: boolean; stop: boolean; forceStop: boolean };
   array?: { read: boolean; start: boolean; stop: boolean };
   parity?: { read: boolean; start: boolean; cancel: boolean };
 };
@@ -48,6 +49,25 @@ export type StorageCapacity = {
   totalBytes: number;
   usedBytes: number;
   freeBytes: number;
+};
+
+export type VMDomain = {
+  id: string;
+  name: string;
+  state: string;
+  vcpus: number | null;
+  memoryBytes: number | null;
+  uptimeSeconds: number | null;
+  diagnostics: string[];
+};
+
+export type VMSnapshot = {
+  timestamp: string;
+  available: boolean;
+  reason?: string;
+  domains: VMDomain[];
+  summary: { running: number; stopped: number; other: number };
+  diagnostics: string[];
 };
 export type StorageSnapshot = {
   timestamp: string;
@@ -150,6 +170,17 @@ export async function getDocker(
   fetcher: Fetcher = fetch,
 ): Promise<DockerSnapshot> {
   return request<DockerSnapshot>("/api/v1/docker", fetcher, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+    signal,
+  });
+}
+
+export async function getVMs(
+  signal?: AbortSignal,
+  fetcher: Fetcher = fetch,
+): Promise<VMSnapshot> {
+  return request<VMSnapshot>("/api/v1/vms", fetcher, {
     headers: { Accept: "application/json" },
     cache: "no-store",
     signal,

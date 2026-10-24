@@ -7,7 +7,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/luyangkk/unraid-mobile/issues</Support>
   <Project>https://github.com/luyangkk/unraid-mobile</Project>
-  <Overview>Unraid Mobile read-only system, storage and Docker preview. Mount /proc, /sys and /var/local/emhttp read-only for host metrics and storage. Optionally mount /var/run/docker.sock for container states and resource statistics. Missing data is shown explicitly. Docker/VM/Array/Parity operations are not enabled. No privileged access is required. A read-only socket mount does not restrict Engine API permissions; the application issues only read requests.</Overview>
+  <Overview>Unraid Mobile read-only system, storage, Docker and VM preview. Mount /proc, /sys and /var/local/emhttp read-only for host metrics and storage. Optionally mount /var/run/docker.sock for container states and resource statistics. Optionally mount /var/run/libvirt for VM states and assigned resources through libvirt-sock-ro. VM preview is disabled by default; VM_READ_ENABLED=true is only for target-host validation. Missing data is shown explicitly. Docker/VM/Array/Parity operations are not enabled. No privileged access is required. A read-only socket mount does not restrict Engine API permissions; the application issues only read requests.</Overview>
   <Category>Tools:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <ExtraParams/>
@@ -18,5 +18,7 @@
   <Config Name="Host sysfs" Target="/host/sys" Default="/sys" Mode="ro" Description="Read-only host CPU sensors." Type="Path" Display="always" Required="true" Mask="false">/sys</Config>
   <Config Name="Unraid storage state" Target="/host/var/local/emhttp" Default="/var/local/emhttp" Mode="ro" Description="Read-only storage metadata. Required for Array, Parity, Pools and disk capacity/temperature." Type="Path" Display="always" Required="true" Mask="false">/var/local/emhttp</Config>
   <Config Name="Docker Engine socket" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="ro" Description="Optional container states and statistics. Read-only bind mode does not restrict socket API permissions; the application only sends read requests." Type="Path" Display="always" Required="false" Mask="false">/var/run/docker.sock</Config>
+  <Config Name="Libvirt directory" Target="/var/run/libvirt" Default="/var/run/libvirt" Mode="ro" Description="Optional VM preview; requires libvirt-sock-ro. Only fixed read calls are sent. Target-host validation is still required. Directory mount survives socket recreation." Type="Path" Display="always" Required="false" Mask="false">/var/run/libvirt</Config>
+  <Config Name="VM read preview" Target="VM_READ_ENABLED" Default="false" Mode="" Description="Unverified VM preview. Set true only for target-host read validation with libvirt-sock-ro mounted. Does not enable VM operations." Type="Variable" Display="always" Required="false" Mask="false">false</Config>
   <Config Name="Server name" Target="SERVER_NAME" Default="Tower" Mode="" Description="Display name for this Unraid server." Type="Variable" Display="always" Required="false" Mask="false">Tower</Config>
 </Container>

@@ -12,9 +12,11 @@ import (
 	"github.com/unraid-mobile/unraid-mobile/internal/app/operation"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/storage"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/system"
+	"github.com/unraid-mobile/unraid-mobile/internal/app/vm"
 )
 
 type Config struct {
+	VM              *vm.Service
 	Docker          *docker.Service
 	Storage         *storage.Service
 	System          *system.Service
@@ -32,6 +34,7 @@ func NewServer(config Config) http.Handler {
 	mux.HandleFunc("GET /api/v1/capabilities", func(w http.ResponseWriter, _ *http.Request) {
 		caps := config.Capabilities
 		caps.Docker = config.Docker != nil && config.Docker.Latest().Available
+		caps.VM = config.VM != nil && config.VM.Latest().Available
 		if config.Storage != nil {
 			snapshot := config.Storage.Latest()
 			caps.Storage.Read = snapshot.Available
@@ -50,6 +53,13 @@ func NewServer(config Config) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, config.Docker.Latest())
+	})
+	mux.HandleFunc("GET /api/v1/vms", func(w http.ResponseWriter, _ *http.Request) {
+		if config.VM == nil {
+			writeJSON(w, http.StatusOK, vm.Unavailable(time.Now(), "VM provider unavailable; mount /var/run/libvirt read-only and check socket permissions"))
+			return
+		}
+		writeJSON(w, http.StatusOK, config.VM.Latest())
 	})
 	mux.HandleFunc("GET /api/v1/storage", func(w http.ResponseWriter, _ *http.Request) {
 		if config.Storage == nil {

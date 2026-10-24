@@ -3,11 +3,18 @@ package capability
 
 // Set is the complete set of capabilities returned to the client at startup.
 type Set struct {
-	Docker  bool    `json:"docker"`
-	VM      bool    `json:"vm"`
-	Array   Array   `json:"array"`
-	Parity  Parity  `json:"parity"`
-	Storage Storage `json:"storage"`
+	Docker        bool          `json:"docker"`
+	DockerActions DockerActions `json:"dockerActions"`
+	VM            bool          `json:"vm"`
+	Array         Array         `json:"array"`
+	Parity        Parity        `json:"parity"`
+	Storage       Storage       `json:"storage"`
+}
+
+type DockerActions struct {
+	Start   bool `json:"start"`
+	Stop    bool `json:"stop"`
+	Restart bool `json:"restart"`
 }
 
 type Array struct {
@@ -33,7 +40,9 @@ type Storage struct {
 func (s Set) Allows(resource, action string) bool {
 	switch resource {
 	case "docker":
-		return s.Docker && (action == "start" || action == "stop" || action == "restart")
+		return s.Docker && ((action == "start" && s.DockerActions.Start) ||
+			(action == "stop" && s.DockerActions.Stop) ||
+			(action == "restart" && s.DockerActions.Restart))
 	case "vm":
 		return s.VM && (action == "start" || action == "stop" || action == "force-stop")
 	case "array":

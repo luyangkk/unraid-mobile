@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -8,14 +9,20 @@ import (
 	"time"
 
 	"github.com/unraid-mobile/unraid-mobile/internal/app/capability"
+	"github.com/unraid-mobile/unraid-mobile/internal/app/docker"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/operation"
 )
 
+// newTestServer explicitly opts a fake read provider into restart acceptance.
 func newTestServer() http.Handler {
+	service := docker.NewService(&dockerReader{}, time.Now)
+	service.Collect(context.Background())
 	return NewServer(Config{
+		Docker: service,
 		Capabilities: capability.Set{
-			Docker: true,
-			Array:  capability.Array{Read: true, Start: true},
+			Docker:        true,
+			DockerActions: capability.DockerActions{Restart: true},
+			Array:         capability.Array{Read: true, Start: true},
 		},
 		Operations: operation.NewStore(time.Now),
 		ContainerExists: func(id string) bool {

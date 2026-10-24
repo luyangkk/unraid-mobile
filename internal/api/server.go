@@ -5,14 +5,17 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/unraid-mobile/unraid-mobile/internal/app/capability"
+	"github.com/unraid-mobile/unraid-mobile/internal/app/docker"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/operation"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/storage"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/system"
 )
 
 type Config struct {
+	Docker          *docker.Service
 	Storage         *storage.Service
 	System          *system.Service
 	Capabilities    capability.Set
@@ -20,6 +23,7 @@ type Config struct {
 	ContainerExists func(id string) bool
 }
 
+// NewServer exposes cached read endpoints and explicitly gated operation routes.
 func NewServer(config Config) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -27,6 +31,7 @@ func NewServer(config Config) http.Handler {
 	})
 	mux.HandleFunc("GET /api/v1/capabilities", func(w http.ResponseWriter, _ *http.Request) {
 		caps := config.Capabilities
+		caps.Docker = config.Docker != nil && config.Docker.Latest().Available
 		if config.Storage != nil {
 			snapshot := config.Storage.Latest()
 			caps.Storage.Read = snapshot.Available
@@ -38,6 +43,13 @@ func NewServer(config Config) http.Handler {
 			}
 		}
 		writeJSON(w, http.StatusOK, caps)
+	})
+	mux.HandleFunc("GET /api/v1/docker", func(w http.ResponseWriter, _ *http.Request) {
+		if config.Docker == nil {
+			writeJSON(w, http.StatusOK, docker.Unavailable(time.Now(), "Docker provider unavailable; check the Unix socket mount and permissions"))
+			return
+		}
+		writeJSON(w, http.StatusOK, config.Docker.Latest())
 	})
 	mux.HandleFunc("GET /api/v1/storage", func(w http.ResponseWriter, _ *http.Request) {
 		if config.Storage == nil {
@@ -61,6 +73,7 @@ func NewServer(config Config) http.Handler {
 	return mux
 }
 
+// handleDockerAction validates resource and explicit write flags before acceptance.
 func handleDockerAction(w http.ResponseWriter, r *http.Request, config Config) {
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/docker/"), "/")
 	if len(parts) != 2 || parts[0] == "" || !isDockerAction(parts[1]) {
@@ -72,7 +85,11 @@ func handleDockerAction(w http.ResponseWriter, r *http.Request, config Config) {
 		writeError(w, http.StatusNotFound, "DOCKER_NOT_FOUND", "Container not found", false)
 		return
 	}
-	if !config.Capabilities.Allows("docker", action) {
+	caps := config.Capabilities
+	if config.Docker != nil {
+		caps.Docker = config.Docker.Latest().Available
+	}
+	if !caps.Allows("docker", action) {
 		writeError(w, http.StatusConflict, "CAPABILITY_UNAVAILABLE", "Docker operation is unavailable on this system", false)
 		return
 	}

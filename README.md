@@ -2,13 +2,15 @@
 
 Mobile-first console for a single Unraid server, built with Go and React.
 
-**Current status: read-only system metrics preview.** The image shows host CPU,
+**Current status: read-only system, storage and Docker preview.** The image shows host CPU,
 memory, default-route network rates, uptime and recognized CPU sensors. Metrics
 are sampled every second and delivered through REST snapshots and SSE. The CPU
 trend keeps at most 60 points in browser memory. Initial/invalid rate samples
 are unknown, not zero. Storage shows Array/Parity state, per-filesystem capacity,
 pools, disk temperature and physical-device I/O from Unraid metadata and procfs.
-VM/Docker control and authentication are not implemented; write capabilities
+Docker shows all containers, their actual states, CPU, working-set memory,
+uptime and network rates when the Engine socket is mounted. VM/Docker control
+and authentication are not implemented; write capabilities
 remain disabled.
 
 ## Install the prebuilt image on Unraid
@@ -37,10 +39,12 @@ In Unraid **Docker → Add Container**, use:
 | Path (read-only) | `/proc` on host → `/host/proc` in container |
 | Path (read-only) | `/sys` on host → `/host/sys` in container |
 | Path (read-only) | `/var/local/emhttp` on host → `/host/var/local/emhttp` in container |
+| Path (optional, read-only) | `/var/run/docker.sock` on host → `/var/run/docker.sock` in container |
 | Variable (optional) | `SERVER_NAME=Tower` |
 
 Click Apply and open `http://10.0.0.66:18080`. Keep Privileged off; system metrics
-do not need Docker/libvirt sockets or the boot drive. Enable Auto-Start on the
+do not need Docker/libvirt sockets or the boot drive. Docker display needs only
+the optional Docker Engine socket, with Privileged still off. Enable Auto-Start on the
 Docker page if desired. Keep access on a controlled LAN; authentication is not
 implemented. Existing installations must add the read-only paths manually:
 updating an image does not update an already saved Unraid container template.
@@ -48,6 +52,34 @@ updating an image does not update an already saved Unraid container template.
 The server name is explicitly configurable because a bind-mounted procfs
 hostname can still describe the container's UTS namespace. Without a configured
 name or a separately mounted `/host/etc/hostname`, the UI says Unraid.
+
+Docker data is sampled in the backend every two seconds and served from
+`GET /api/v1/docker`. The page polls the cache while visible and refreshes after
+returning to the foreground. All Running containers are shown; their collapse
+preference is saved locally. Stopped containers start collapsed, and paused or
+transitional states appear under Other. Failed refreshes retain the last
+snapshots and sampling time; missing socket access is shown as unavailable.
+
+CPU and network rates use adjacent valid Engine counters. First samples,
+restarts, counter resets and telemetry recovery report unknown rates rather
+than zero. Memory is the Engine usage minus reported inactive-file cache
+(with the cgroup v1 cache fallback). A container's missing stats or inspect
+response leaves its list entry visible with unknown affected metrics and
+diagnostics. Startup identity is checked around stats to avoid mixing counters
+across a restart. Sampling is bounded to four workers, two seconds per request
+and eight seconds per round; deferred containers get priority next round.
+The reader negotiates the daemon's supported range within API 1.24–1.44.
+Only selected display fields are exported, never environment
+variables or full inspect responses. Icons use a generic local container icon
+until an Unraid metadata source is verified.
+
+`capabilities.docker` means Docker data can be read. Separate
+`dockerActions.start/stop/restart` flags remain false, so read access does not
+enable operations. Mounting a Unix socket read-only does **not** make its API
+read-only; this application sends only fixed Engine read requests. Existing
+Unraid installations must add the optional socket mount manually after updating
+the image. Real host compatibility and metric comparisons still need to be
+verified on the target Unraid system.
 
 Missing mounts, missing sensors or host-network permission errors are shown as
 unavailable data with diagnostics. Network rates use the lowest-metric active
@@ -92,11 +124,15 @@ docker run -d --name unraid-mobile \
   --mount type=bind,src=/proc,dst=/host/proc,readonly \
   --mount type=bind,src=/sys,dst=/host/sys,readonly \
   --mount type=bind,src=/var/local/emhttp,dst=/host/var/local/emhttp,readonly \
+  --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock,readonly \
   -e SERVER_NAME=Tower \
   ghcr.io/luyangkk/unraid-mobile:latest
 ```
 
-Validate with `curl -i http://10.0.0.66:18080/healthz` (expected 204) and
+Omit the optional socket mount if Docker display is not needed.
+
+Validate with `curl -i http://10.0.0.66:18080/healthz` (expected 204),
+`curl http://10.0.0.66:18080/api/v1/docker` (check `available` and diagnostics), and
 `docker logs --tail 50 unraid-mobile`.
 
 ## Publishing and updating

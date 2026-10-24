@@ -1,13 +1,15 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Box, RefreshCw } from "lucide-react";
+import { Activity, RefreshCw } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "./components/ui/button";
 import { SystemPanel } from "./features/system/SystemPanel";
 import { StoragePanel } from "./features/storage/StoragePanel";
+import { DockerPanel } from "./features/docker/DockerPanel";
 import {
   getCapabilities,
   getSystem,
   getStorage,
+  getDocker,
   type SystemSnapshot,
 } from "./lib/api";
 import { subscribeSystem } from "./lib/stream";
@@ -20,6 +22,7 @@ import {
 
 const systemKey = ["system"] as const;
 
+// App coordinates live System data and cached Docker/Storage snapshots.
 function App() {
   const queryClient = useQueryClient();
   const { data: snapshot } = useQuery<SystemSnapshot>({
@@ -38,6 +41,13 @@ function App() {
     refetchInterval: 2000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
+  });
+  const docker = useQuery({
+    queryKey: ["docker"],
+    queryFn: ({ signal }) => getDocker(signal),
+    refetchInterval: 2000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: "always",
   });
   const [connection, setConnection] = useState<Connection>("connecting");
   const [points, setPoints] = useState<Point[]>([]);
@@ -100,6 +110,7 @@ function App() {
             setRevision((value) => value + 1);
             void capabilities.refetch();
             void storage.refetch();
+            void docker.refetch();
           }}
         >
           <RefreshCw
@@ -135,17 +146,20 @@ function App() {
             Connecting to the server…
           </div>
         )}
-        <StatusCard
-          icon={<Box aria-hidden="true" />}
-          title="Docker"
-          detail={
-            capabilities.error
-              ? "Capabilities unavailable"
-              : capabilities.data?.docker
-                ? "Available"
-                : "Adapter not connected"
-          }
-        />
+        {docker.data ? (
+          <DockerPanel
+            snapshot={docker.data}
+            stale={docker.isError}
+            errorMessage={docker.error?.message}
+          />
+        ) : (
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-lg font-semibold">Docker</h2>
+            <p className="mt-2 text-sm text-slate-400" role="status">
+              {docker.error ? docker.error.message : "Loading containers…"}
+            </p>
+          </section>
+        )}
         <StatusCard
           icon={<Activity aria-hidden="true" />}
           title="VM"

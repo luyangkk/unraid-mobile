@@ -11,10 +11,12 @@ import (
 	"syscall"
 	"time"
 
+	dockeradapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/docker"
 	systemadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/system"
 	storageadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/unraid/storage"
 	"github.com/unraid-mobile/unraid-mobile/internal/api"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/capability"
+	"github.com/unraid-mobile/unraid-mobile/internal/app/docker"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/operation"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/storage"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/system"
@@ -26,6 +28,7 @@ import (
 //go:embed web/*
 var webFiles embed.FS
 
+// main starts read-only samplers and serves API and embedded frontend assets.
 func main() {
 	address := os.Getenv("LISTEN_ADDR")
 	if address == "" {
@@ -42,8 +45,14 @@ func main() {
 	storageMetrics := storage.NewService(storageadapter.NewReader(os.DirFS("/host")), time.Now)
 	storageMetrics.Collect(ctx)
 	go storageMetrics.Run(ctx)
+	dockerMetrics := docker.NewService(dockeradapter.NewReader("/var/run/docker.sock"), time.Now)
+	go func() {
+		dockerMetrics.Collect(ctx)
+		dockerMetrics.Run(ctx)
+	}()
 	// Write capabilities stay unavailable until verified on the target host.
 	apiHandler := api.NewServer(api.Config{
+		Docker:       dockerMetrics,
 		System:       metrics,
 		Storage:      storageMetrics,
 		Capabilities: capability.Set{},

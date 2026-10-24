@@ -2,13 +2,24 @@ package capability
 
 import "testing"
 
+// TestDockerReadDoesNotAllowWrites separates read availability from action permissions.
+func TestDockerReadDoesNotAllowWrites(t *testing.T) {
+	set := Set{Docker: true}
+	for _, action := range []string{"start", "stop", "restart"} {
+		if set.Allows("docker", action) {
+			t.Fatalf("read capability enabled %s", action)
+		}
+	}
+}
+
 func TestSetAllows(t *testing.T) {
 	t.Parallel()
 
 	set := Set{
-		Docker: true,
-		Array:  Array{Read: true, Start: true, Stop: false},
-		Parity: Parity{Read: true, Start: false, Cancel: false},
+		Docker:        true,
+		DockerActions: DockerActions{Restart: true},
+		Array:         Array{Read: true, Start: true, Stop: false},
+		Parity:        Parity{Read: true, Start: false, Cancel: false},
 	}
 
 	cases := []struct {
@@ -18,6 +29,7 @@ func TestSetAllows(t *testing.T) {
 		want     bool
 	}{
 		{name: "allows an available docker action", resource: "docker", action: "restart", want: true},
+		{name: "rejects a disabled docker action", resource: "docker", action: "stop", want: false},
 		{name: "rejects an unavailable array action", resource: "array", action: "stop", want: false},
 		{name: "rejects an unknown action", resource: "parity", action: "pause", want: false},
 	}

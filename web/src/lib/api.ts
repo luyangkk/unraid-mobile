@@ -1,5 +1,6 @@
 export type Capabilities = {
   docker: boolean;
+  dockerActions?: { start: boolean; stop: boolean; restart: boolean };
   vm: boolean;
   array?: { read: boolean; start: boolean; stop: boolean };
   parity?: { read: boolean; start: boolean; cancel: boolean };
@@ -19,6 +20,28 @@ export type SystemSnapshot = {
   networkRXRate: number | null;
   networkTXRate: number | null;
   diagnostics: Record<string, string>;
+};
+
+export type DockerContainer = {
+  id: string;
+  name: string;
+  state: string;
+  cpuUsage: number | null;
+  memoryUsedBytes: number | null;
+  memoryLimitBytes: number | null;
+  uptimeSeconds: number | null;
+  networkRXRate: number | null;
+  networkTXRate: number | null;
+  diagnostics: string[];
+};
+
+export type DockerSnapshot = {
+  timestamp: string;
+  available: boolean;
+  reason?: string;
+  containers: DockerContainer[];
+  summary: { running: number; stopped: number; other: number };
+  diagnostics: string[];
 };
 
 export type StorageCapacity = {
@@ -115,6 +138,18 @@ export async function getStorage(
   fetcher: Fetcher = fetch,
 ): Promise<StorageSnapshot> {
   return request<StorageSnapshot>("/api/v1/storage", fetcher, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+    signal,
+  });
+}
+
+// getDocker fetches the current cached sample without offline business caching.
+export async function getDocker(
+  signal?: AbortSignal,
+  fetcher: Fetcher = fetch,
+): Promise<DockerSnapshot> {
+  return request<DockerSnapshot>("/api/v1/docker", fetcher, {
     headers: { Accept: "application/json" },
     cache: "no-store",
     signal,

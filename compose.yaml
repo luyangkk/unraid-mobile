@@ -19,12 +19,27 @@ services:
   host-spike:
     build: .
     profiles: ["spike"]
-    privileged: true
+    privileged: false
     entrypoint: ["/app/host-spike"]
     volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /var/run/libvirt:/var/run/libvirt
-      - /boot:/host/boot:ro
-      - /var/local/emhttp:/host/var/local/emhttp:ro
+      - type: bind
+        source: /proc
+        target: /host/proc
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /sys
+        target: /host/sys
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/local/emhttp
+        target: /host/var/local/emhttp
+        read_only: true
+        bind:
+          create_host_path: false
+    environment:
+      SPIKE_DOCKER_READ_ENABLED: "false"
+      SPIKE_VM_READ_ENABLED: "false"

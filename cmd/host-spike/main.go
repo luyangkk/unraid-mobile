@@ -2,37 +2,27 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	systemadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/system"
-	"github.com/unraid-mobile/unraid-mobile/internal/app/system"
+	"io"
 	"os"
-	"time"
+	"os/signal"
+	"syscall"
 
 	"github.com/unraid-mobile/unraid-mobile/internal/spike"
 )
 
+// main wires signal cancellation and explicit Spike-only environment flags.
 func main() {
-	report := spike.Inspect(func(path string) error {
-		_, err := os.Stat(path)
-		return err
-	})
-	reader := systemadapter.NewReader(os.DirFS("/host"))
-	reader.Hostname = os.Getenv("SERVER_NAME")
-	metrics := system.NewService(reader, time.Now)
-	metrics.Collect(context.Background())
-	timer := time.NewTimer(time.Second)
-	<-timer.C
-	snapshot := metrics.Collect(context.Background())
-	result := struct {
-		spike.Report
-		System system.Snapshot `json:"system"`
-	}{Report: report, System: snapshot}
-	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
-		fmt.Fprintf(os.Stderr, "encode Host Spike report: %v\n", err)
-		os.Exit(1)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	code := execute(ctx, os.Stdout, spike.ConfigFromEnvironment(os.Getenv))
+	stop()
+	if code == 1 {
+		fmt.Fprintln(os.Stderr, "Host Spike internal or report output failure")
 	}
-	if !report.AllAvailable || !snapshot.Available {
-		os.Exit(2)
-	}
+	os.Exit(code)
+}
+
+// execute emits a sanitized report and preserves its capability exit status.
+func execute(ctx context.Context, out io.Writer, config spike.Config) int {
+	return spike.WriteReport(out, spike.Run(ctx, config))
 }

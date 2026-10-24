@@ -1,0 +1,208 @@
+{
+  "kind": "existingDeploymentApiObservation",
+  "observedAt": "2026-10-24T13:56:19.584978+00:00",
+  "target": "http://10.0.0.66:18080/api/v1/",
+  "updatedSpikeExecuted": false,
+  "system": {
+    "timestamp": "2026-10-24T13:56:19.609704631Z",
+    "available": true,
+    "cpuUsage": 3.553299492385787,
+    "cpuTemperature": 49,
+    "memoryUsedBytes": 7255961600,
+    "memoryTotalBytes": 16483979264,
+    "networkInterface": "shim-br0",
+    "networkRXRate": 976.208631591757,
+    "networkTXRate": 4064.7049266277045,
+    "uptimeSeconds": 4806286.3,
+    "diagnostics": {}
+  },
+  "storage": {
+    "timestamp": "2026-10-24T13:56:19.609204953Z",
+    "available": true,
+    "array": {
+      "state": "started",
+      "diskCount": 5,
+      "capacity": {
+        "totalBytes": 13044001148928,
+        "usedBytes": 9252689281024,
+        "freeBytes": 3791311867904
+      }
+    },
+    "parity": {
+      "state": "not_configured",
+      "action": "",
+      "progress": null
+    },
+    "pools": [
+      {
+        "state": "Mounted",
+        "filesystem": "btrfs",
+        "diskCount": 1,
+        "capacity": {
+          "totalBytes": 238387740672,
+          "usedBytes": 30210220032,
+          "freeBytes": 208177520640
+        }
+      }
+    ],
+    "disks": [
+      {
+        "role": "cache",
+        "status": "DISK_OK",
+        "powerState": "active",
+        "filesystem": "btrfs",
+        "filesystemStatus": "Mounted",
+        "sizeBytes": 240056360960,
+        "temperature": 19,
+        "capacity": {
+          "totalBytes": 238387740672,
+          "usedBytes": 30210220032,
+          "freeBytes": 208177520640
+        },
+        "readBytesPerSecond": 0,
+        "writeBytesPerSecond": 0
+      },
+      {
+        "role": "data",
+        "status": "DISK_OK",
+        "powerState": "standby",
+        "filesystem": "xfs",
+        "filesystemStatus": "Mounted",
+        "sizeBytes": 4000786976768,
+        "temperature": null,
+        "capacity": {
+          "totalBytes": 3998833471488,
+          "usedBytes": 2966017921024,
+          "freeBytes": 1032815550464
+        },
+        "readBytesPerSecond": 0,
+        "writeBytesPerSecond": 0
+      },
+      {
+        "role": "data",
+        "status": "DISK_OK",
+        "powerState": "standby",
+        "filesystem": "xfs",
+        "filesystemStatus": "Mounted",
+        "sizeBytes": 2048198492160,
+        "temperature": null,
+        "capacity": {
+          "totalBytes": 2047198396416,
+          "usedBytes": 518323552256,
+          "freeBytes": 1528874844160
+        },
+        "readBytesPerSecond": 0,
+        "writeBytesPerSecond": 0
+      },
+      {
+        "role": "data",
+        "status": "DISK_OK",
+        "powerState": "standby",
+        "filesystem": "xfs",
+        "filesystemStatus": "Mounted",
+        "sizeBytes": 2000398901248,
+        "temperature": null,
+        "capacity": {
+          "totalBytes": 1999422144512,
+          "usedBytes": 1951452635136,
+          "freeBytes": 47969509376
+        },
+        "readBytesPerSecond": 0,
+        "writeBytesPerSecond": 0
+      },
+      {
+        "role": "data",
+        "status": "DISK_OK",
+        "powerState": "standby",
+        "filesystem": "xfs",
+        "filesystemStatus": "Mounted",
+        "sizeBytes": 1000202043392,
+        "temperature": null,
+        "capacity": {
+          "totalBytes": 999713665024,
+          "usedBytes": 240367656960,
+          "freeBytes": 759346008064
+        },
+        "readBytesPerSecond": 0,
+        "writeBytesPerSecond": 0
+      },
+      {
+        "role": "data",
+        "status": "DISK_OK",
+        "powerState": "standby",
+        "filesystem": "xfs",
+        "filesystemStatus": "Mounted",
+        "sizeBytes": 4000786976768,
+        "temperature": null,
+        "capacity": {
+          "totalBytes": 3998833471488,
+          "usedBytes": 3576527515648,
+          "freeBytes": 422305955840
+        },
+        "readBytesPerSecond": 0,
+        "writeBytesPerSecond": 0
+      }
+    ],
+    "diagnostics": []
+  },
+  "docker": {
+    "timestamp": "2026-10-24T13:56:19.662034894Z",
+    "available": true,
+    "count": 25,
+    "summary": {
+      "running": 13,
+      "stopped": 12,
+      "other": 0
+    },
+    "diagnosticCounts": {
+      "Container network counters unavailable": 1
+    }
+  },
+  "vm": {
+    "timestamp": "2026-10-24T13:56:17.611740654Z",
+    "available": true,
+    "count": 1,
+    "summary": {
+      "running": 1,
+      "stopped": 0,
+      "other": 0
+    },
+    "assignedResources": [
+      {
+        "state": "running",
+        "vcpus": 4,
+        "memoryBytes": 1073741824
+      }
+    ]
+  },
+  "capabilities": {
+    "docker": true,
+    "dockerActions": {
+      "start": false,
+      "stop": false,
+      "restart": false
+    },
+    "vm": true,
+    "vmActions": {
+      "start": false,
+      "stop": false,
+      "forceStop": false
+    },
+    "array": {
+      "read": true,
+      "start": false,
+      "stop": false
+    },
+    "parity": {
+      "read": true,
+      "start": false,
+      "cancel": false
+    },
+    "storage": {
+      "read": true,
+      "temperature": true,
+      "io": true
+    }
+  },
+  "writeVerified": false
+}

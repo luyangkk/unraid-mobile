@@ -80,10 +80,13 @@ until an Unraid metadata source is verified.
 enable operations. Mounting a Unix socket read-only does **not** make its API
 read-only; this application sends only fixed Engine read requests. Existing
 Unraid installations must add the optional socket mount manually after updating
-the image. Real host compatibility and metric comparisons still need to be
-verified on the target Unraid system.
+the image. On the authorized Unraid 7.1.0 host, the deployed API and WebGUI
+agree on 25 containers (13 running, 12 stopped). One container has unavailable
+network counters. This observation does not verify the updated standalone
+Spike or actual container mount permissions; see the
+[host validation record](docs/validation/2026-10-24-host-spike/report.md).
 
-VM preview is disabled by default because real-host compatibility is unverified.
+VM preview remains disabled by default pending complete host compatibility validation.
 For an authorized validation host, set `VM_READ_ENABLED=true` explicitly and add
 the optional libvirt directory mount. Other values leave collection disabled;
 no libvirt connection is attempted. This setting enables reads only.
@@ -112,10 +115,12 @@ Uptime is currently `null`: the queried libvirt APIs do not expose a reliable
 boot timestamp, and accumulated vCPU time must not be presented as elapsed
 uptime. `capabilities.vm` expresses successful reads only;
 `vmActions.start/stop/forceStop` remain false and VM action routes are not
-implemented. This preview has synthetic protocol/unit coverage, but has not
-been validated against a real Unraid libvirt daemon. Validate the socket,
-permissions, domain list, state and assigned resources on the target host
-before treating it as supported. Existing installations must add the optional
+implemented. On the authorized Unraid 7.1.0 host, one running VM's list entry,
+state, 4 assigned vCPUs and 1 GiB assigned RAM agree with the WebGUI.
+Stopped/paused/crashed domains, socket permissions and daemon recovery remain
+experimental; the updated standalone Spike still requires execution on that
+host. See the [Spike validation record](docs/validation/2026-10-24-host-spike/report.md).
+Existing installations must add the optional
 libvirt directory mount manually.
 
 Missing mounts, missing sensors or host-network permission errors are shown as
@@ -191,28 +196,47 @@ the container. To roll back, edit Repository to an earlier published
 
 ## Host capability spike
 
-The separate `host-spike` binary reports path existence via `os.Stat` plus a
-`system` snapshot from two real parsing samples one second apart. It does not
-connect to Docker/libvirt sockets or perform write operations. `allAvailable`
-still describes path existence only; inspect `system.available` and
-`system.diagnostics` separately. It exits 2 when a required path is absent or the
-system snapshot is unavailable. Run only on the authorized Unraid test host.
+The separate `host-spike` binary reuses the production adapters and services to
+sample System and Storage, including Array/Parity metadata, twice. Docker and
+VM protocol probes run only when `SPIKE_DOCKER_READ_ENABLED=true` and
+`SPIKE_VM_READ_ENABLED=true` respectively. Other values report `skipped` and
+do not access optional sockets. VM always uses `libvirt-sock-ro`; Docker uses
+only the existing version, list, inspect and non-streaming stats GET requests.
 
-`sh scripts/run-host-spike.sh` builds locally on Unraid. To use a prebuilt image:
+Each module has its own result, status and sanitized diagnostics. The versioned
+JSON includes UTC time, surface checks, intended mounts, observed mount modes
+when `/proc/self/mountinfo` provides evidence, permissions and unverified
+capabilities. A successful path check alone does not establish read-only mount
+mode or container privilege settings. Docker output contains counts and status
+summaries; VM adds counts of available assigned CPU/RAM fields. No names,
+identifiers, serials, XML, full inspect, labels or environment are exported.
+`writeVerified` is always false. Read compatibility does not validate Array or
+Parity control entry points or authorize production executors.
+
+Exit codes: `0` means required checks and enabled optional protocols passed;
+`1` means an internal/report encoding error; `2` means a required or enabled
+probe failed or was incomplete. Optional metrics may remain unknown with
+diagnostics. Whole-run and module deadlines prevent sockets from waiting
+indefinitely. No probe runs host commands, scans `/mnt`, performs SMART or
+mutates a host resource.
+
+Run only on the explicitly authorized Unraid test host. The launcher builds
+locally unless `SPIKE_IMAGE` names a prebuilt image containing the updated
+binary. Builds go to stderr, leaving stdout for JSON. It uses no privileged
+mode or `/boot` mount. Missing optional sockets are left unmounted so the
+binary can report their failure while retaining other module results:
 
 ```sh
-docker run --rm --privileged \
-  --mount type=bind,src=/proc,dst=/host/proc,readonly \
-  --mount type=bind,src=/sys,dst=/host/sys,readonly \
-  --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock,readonly \
-  --mount type=bind,src=/var/run/libvirt,dst=/var/run/libvirt,readonly \
-  --mount type=bind,src=/var/local/emhttp,dst=/host/var/local/emhttp,readonly \
-  --entrypoint /app/host-spike \
-  ghcr.io/luyangkk/unraid-mobile:latest
+SPIKE_DOCKER_READ_ENABLED=true SPIKE_VM_READ_ENABLED=true \
+  sh scripts/run-host-spike.sh
 ```
 
-The binary does not issue socket requests. A read-only socket mount alone does
-not restrict which API calls a different program could send through it.
+To retain raw JSON without writing host files, redirect the authorized remote
+execution's stdout to a local validation directory. Retain its exit code
+separately. Do not assume an already deployed image includes an unshipped Spike
+change. `docker compose --profile spike run --rm host-spike` performs only the
+default System/Storage probes; use the launcher for conditional socket mounts.
+A read-only socket mount alone does not restrict socket API methods.
 
 ## Local development
 

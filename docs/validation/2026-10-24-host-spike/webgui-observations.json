@@ -1,0 +1,60 @@
+{
+  "kind": "nativeWebGuiObservation",
+  "target": "http://10.0.0.66",
+  "updatedSpikeExecuted": false,
+  "system": {
+    "observedAt": "2026-10-24T13:55:54.153Z",
+    "cpuUsagePercent": 24,
+    "physicalMemoryDisplay": "16 GiB DDR4",
+    "usableMemoryDisplay": "15 GiB",
+    "memoryUsagePercent": 44,
+    "systemMemoryDisplay": "2.04 GiB",
+    "vmMemoryDisplay": "1.20 GiB",
+    "dockerMemoryDisplay": "3.57 GiB",
+    "freeMemoryDisplay": "8.55 GiB",
+    "cpuTemperatureEarlierDisplay": "50 °C"
+  },
+  "storage": {
+    "observedAt": "2026-10-24T13:54:26.876Z",
+    "dataDiskCount": 5,
+    "dataPowerStates": ["standby", "standby", "standby", "standby", "standby"],
+    "dataTemperatureDisplays": ["*", "*", "*", "*", "*"],
+    "dataSizeDisplays": ["4 TB", "2 TB", "2 TB", "1 TB", "4 TB"],
+    "arraySizeDisplay": "13 TB",
+    "arrayUsedDisplay": "9.25 TB",
+    "arrayFreeDisplay": "3.79 TB",
+    "poolCount": 1,
+    "poolMemberCount": 1,
+    "poolFilesystem": "btrfs",
+    "poolPowerState": "active",
+    "poolSizeDisplay": "240 GB",
+    "poolUsedDisplay": "30.2 GB",
+    "poolFreeDisplay": "208 GB",
+    "poolTemperatureDisplay": "19 °C",
+    "dataDiskErrorCounts": [0, 2, 0, 0, 0],
+    "parityDeviceCount": 0
+  },
+  "docker": {
+    "observedAt": "2026-10-24T13:55:24.346Z",
+    "count": 25,
+    "summary": {"running": 13, "stopped": 12, "other": 0},
+    "appMountTargets": [
+      "/host/proc",
+      "/host/sys",
+      "/host/var/local/emhttp",
+      "/var/run/docker.sock",
+      "/var/run/libvirt"
+    ],
+    "mountReadOnlyVerified": false,
+    "privilegedVerified": false
+  },
+  "vm": {
+    "observedAt": "2026-10-24T13:54:37.778Z",
+    "count": 1,
+    "summary": {"running": 1, "stopped": 0, "other": 0},
+    "assignedResources": [
+      {"state": "running", "vcpus": 4, "ramDisplay": "1024M"}
+    ]
+  },
+  "writeVerified": false
+}

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Container version="2">
+  <Name>unraid-mobile</Name>
+  <Repository>ghcr.io/luyangkk/unraid-mobile:latest</Repository>
+  <Registry>https://github.com/luyangkk/unraid-mobile/pkgs/container/unraid-mobile</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/luyangkk/unraid-mobile/issues</Support>
+  <Project>https://github.com/luyangkk/unraid-mobile</Project>
+  <Overview>Development preview of Unraid Mobile. Serves the React UI and capability API. Host metrics and operations are not implemented yet. No host mounts or privileged access are required for this preview.</Overview>
+  <Category>Tools:</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <Config Name="Web UI" Target="8080" Default="18080" Mode="tcp" Description="Open the web interface on this host port." Type="Port" Display="always" Required="true" Mask="false">18080</Config>
+</Container>

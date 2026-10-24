@@ -1,0 +1,45 @@
+// Package capability describes what the current Unraid host can safely expose.
+package capability
+
+// Set is the complete set of capabilities returned to the client at startup.
+type Set struct {
+	Docker  bool    `json:"docker"`
+	VM      bool    `json:"vm"`
+	Array   Array   `json:"array"`
+	Parity  Parity  `json:"parity"`
+	Storage Storage `json:"storage"`
+}
+
+type Array struct {
+	Read  bool `json:"read"`
+	Start bool `json:"start"`
+	Stop  bool `json:"stop"`
+}
+
+type Parity struct {
+	Read   bool `json:"read"`
+	Start  bool `json:"start"`
+	Cancel bool `json:"cancel"`
+}
+
+type Storage struct {
+	Temperature bool `json:"temperature"`
+	IO          bool `json:"io"`
+}
+
+// Allows reports whether a public operation is currently available. Unknown
+// resources and actions are deliberately denied.
+func (s Set) Allows(resource, action string) bool {
+	switch resource {
+	case "docker":
+		return s.Docker && (action == "start" || action == "stop" || action == "restart")
+	case "vm":
+		return s.VM && (action == "start" || action == "stop" || action == "force-stop")
+	case "array":
+		return (action == "start" && s.Array.Start) || (action == "stop" && s.Array.Stop)
+	case "parity":
+		return (action == "start" && s.Parity.Start) || (action == "cancel" && s.Parity.Cancel)
+	default:
+		return false
+	}
+}

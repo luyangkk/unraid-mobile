@@ -1,0 +1,30 @@
+services:
+  unraid-mobile:
+    build: .
+    container_name: unraid-mobile
+    privileged: true
+    ports:
+      - "8080:8080"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/libvirt:/var/run/libvirt
+      - /boot:/host/boot:ro
+      - /var/local/emhttp:/host/var/local/emhttp
+    environment:
+      TZ: Asia/Shanghai
+    restart: unless-stopped
+
+  host-spike:
+    build: .
+    profiles: ["spike"]
+    privileged: true
+    entrypoint: ["/app/host-spike"]
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/libvirt:/var/run/libvirt
+      - /boot:/host/boot:ro
+      - /var/local/emhttp:/host/var/local/emhttp

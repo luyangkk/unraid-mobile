@@ -1,0 +1,15 @@
+.git
+node_modules
+web/node_modules
+web/dist
+**/*.test.*
+.DS_Store
+**/*.tsbuildinfo
+.env
+.env.*
+.aws
+.codex
+.agents
+server
+host-spike
+coverage.out

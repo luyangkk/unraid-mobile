@@ -8,10 +8,12 @@ import (
 
 	"github.com/unraid-mobile/unraid-mobile/internal/app/capability"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/operation"
+	"github.com/unraid-mobile/unraid-mobile/internal/app/storage"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/system"
 )
 
 type Config struct {
+	Storage         *storage.Service
 	System          *system.Service
 	Capabilities    capability.Set
 	Operations      *operation.Store
@@ -24,7 +26,25 @@ func NewServer(config Config) http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/v1/capabilities", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, config.Capabilities)
+		caps := config.Capabilities
+		if config.Storage != nil {
+			snapshot := config.Storage.Latest()
+			caps.Storage.Read = snapshot.Available
+			caps.Array.Read = snapshot.Available && snapshot.Array.State != "unknown"
+			caps.Parity.Read = snapshot.Available && snapshot.Parity.State != "unknown"
+			for _, disk := range snapshot.Disks {
+				caps.Storage.Temperature = caps.Storage.Temperature || disk.Temperature != nil
+				caps.Storage.IO = caps.Storage.IO || disk.Counters != nil
+			}
+		}
+		writeJSON(w, http.StatusOK, caps)
+	})
+	mux.HandleFunc("GET /api/v1/storage", func(w http.ResponseWriter, _ *http.Request) {
+		if config.Storage == nil {
+			writeJSON(w, http.StatusOK, storage.Snapshot{Reason: "Storage provider unavailable; mount /var/local/emhttp at /host/var/local/emhttp read-only", Array: storage.Array{State: "unknown"}, Parity: storage.Parity{State: "unknown"}, Pools: []storage.Pool{}, Disks: []storage.Disk{}, Diagnostics: []string{}})
+			return
+		}
+		writeJSON(w, http.StatusOK, config.Storage.Latest())
 	})
 	mux.HandleFunc("GET /api/v1/system", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, systemSnapshot(config.System))

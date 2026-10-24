@@ -23,6 +23,7 @@ type Parity struct {
 }
 
 type Storage struct {
+	Read        bool `json:"read"`
 	Temperature bool `json:"temperature"`
 	IO          bool `json:"io"`
 }

@@ -6,8 +6,10 @@ Mobile-first console for a single Unraid server, built with Go and React.
 memory, default-route network rates, uptime and recognized CPU sensors. Metrics
 are sampled every second and delivered through REST snapshots and SSE. The CPU
 trend keeps at most 60 points in browser memory. Initial/invalid rate samples
-are unknown, not zero. VM/Docker control, storage providers and authentication
-are not implemented yet; write capabilities remain disabled.
+are unknown, not zero. Storage shows Array/Parity state, per-filesystem capacity,
+pools, disk temperature and physical-device I/O from Unraid metadata and procfs.
+VM/Docker control and authentication are not implemented; write capabilities
+remain disabled.
 
 ## Install the prebuilt image on Unraid
 
@@ -34,12 +36,13 @@ In Unraid **Docker → Add Container**, use:
 | WebUI (Advanced View) | `http://[IP]:[PORT:8080]/` |
 | Path (read-only) | `/proc` on host → `/host/proc` in container |
 | Path (read-only) | `/sys` on host → `/host/sys` in container |
+| Path (read-only) | `/var/local/emhttp` on host → `/host/var/local/emhttp` in container |
 | Variable (optional) | `SERVER_NAME=Tower` |
 
 Click Apply and open `http://10.0.0.66:18080`. Keep Privileged off; system metrics
 do not need Docker/libvirt sockets or the boot drive. Enable Auto-Start on the
 Docker page if desired. Keep access on a controlled LAN; authentication is not
-implemented. Existing installations must add both read-only paths manually:
+implemented. Existing installations must add the read-only paths manually:
 updating an image does not update an already saved Unraid container template.
 
 The server name is explicitly configurable because a bind-mounted procfs
@@ -53,6 +56,21 @@ default IPv4 route from `/host/proc/1/net/route` and that interface's counters i
 bridges, bonds and their member interfaces. No IPv4 default route means no
 network rate. CPU temperature requires a labelled CPU hwmon sensor or a known
 CPU thermal-zone type. Target-host verification remains necessary.
+
+Storage uses only `disks.ini` and `var.ini` in the mounted Unraid state directory;
+it does not scan user files, run SMART commands or mount `/mnt`. Capacity fields
+are converted from KiB to bytes. Array capacity sums only assigned Data disks
+whose filesystems are mounted; Parity, Flash and pool disks are excluded. A pool
+uses its canonical first member once, never the sum of mirrored members. For
+Btrfs, effective capacity follows Unraid's display convention: used plus free.
+Stopped arrays and incomplete/invalid capacity metadata are shown as unknown.
+Pools, temperatures and parity progress reflect reported metadata, not inferred
+health. Host diskstats sector counters use 512-byte units; rates reset after
+errors, counter resets or disk replacement. Storage snapshots refresh every two
+seconds while the page is visible. Missing metadata shows the exact required
+mount. Only whitelisted fields are returned; no serial IDs or CSRF tokens are
+exported. Reference formats: [Unraid state sample](https://github.com/unraid/api/blob/main/api/dev/states/disks.ini)
+and [WebGUI device rendering](https://github.com/unraid/webgui/blob/master/emhttp/plugins/dynamix/nchan/device_list).
 
 A matching user template is provided at
 [`deploy/unraid/unraid-mobile.xml`](deploy/unraid/unraid-mobile.xml).
@@ -71,6 +89,7 @@ docker run -d --name unraid-mobile \
   -p 10.0.0.66:18080:8080 \
   --mount type=bind,src=/proc,dst=/host/proc,readonly \
   --mount type=bind,src=/sys,dst=/host/sys,readonly \
+  --mount type=bind,src=/var/local/emhttp,dst=/host/var/local/emhttp,readonly \
   -e SERVER_NAME=Tower \
   ghcr.io/luyangkk/unraid-mobile:latest
 ```
@@ -83,7 +102,7 @@ Validate with `curl -i http://10.0.0.66:18080/healthz` (expected 204) and
 Pushing to `main` or manually running the workflow on `main` runs Go tests,
 frontend tests/build, builds the Linux amd64 image, and starts a temporary
 unprivileged container to verify health, the embedded UI, its JS asset, missing
-mount handling and SSE against synthetic host fixtures. Only
+mount handling, SSE and storage against synthetic host fixtures. Only
 then is that same image pushed to GHCR with `latest` and `sha-<full-commit-sha>`
 tags. Pull requests run the checks without publishing. Publishing uses the
 automatic `GITHUB_TOKEN`; no personal access token is needed.

@@ -12,6 +12,6 @@ docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /var/run/libvirt:/var/run/libvirt \
   -v /boot:/host/boot:ro \
-  -v /var/local/emhttp:/host/var/local/emhttp \
+  -v /var/local/emhttp:/host/var/local/emhttp:ro \
   --entrypoint /app/host-spike \
   "$image_name"

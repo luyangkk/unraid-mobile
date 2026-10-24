@@ -21,6 +21,42 @@ export type SystemSnapshot = {
   diagnostics: Record<string, string>;
 };
 
+export type StorageCapacity = {
+  totalBytes: number;
+  usedBytes: number;
+  freeBytes: number;
+};
+export type StorageSnapshot = {
+  timestamp: string;
+  available: boolean;
+  reason?: string;
+  source: string;
+  array: { state: string; diskCount: number; capacity: StorageCapacity | null };
+  parity: { state: string; action: string; progress: number | null };
+  pools: {
+    name: string;
+    state: string;
+    filesystem: string;
+    diskCount: number;
+    capacity: StorageCapacity | null;
+  }[];
+  disks: {
+    name: string;
+    device: string;
+    role: string;
+    pool?: string;
+    status: string;
+    filesystem: string;
+    filesystemStatus: string;
+    sizeBytes: number | null;
+    temperature: number | null;
+    capacity: StorageCapacity | null;
+    readBytesPerSecond: number | null;
+    writeBytesPerSecond: number | null;
+  }[];
+  diagnostics: string[];
+};
+
 type ErrorPayload = {
   error?: {
     code?: string;
@@ -67,6 +103,17 @@ export async function getSystem(
   fetcher: Fetcher = fetch,
 ): Promise<SystemSnapshot> {
   return request<SystemSnapshot>("/api/v1/system", fetcher, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+    signal,
+  });
+}
+
+export async function getStorage(
+  signal?: AbortSignal,
+  fetcher: Fetcher = fetch,
+): Promise<StorageSnapshot> {
+  return request<StorageSnapshot>("/api/v1/storage", fetcher, {
     headers: { Accept: "application/json" },
     cache: "no-store",
     signal,

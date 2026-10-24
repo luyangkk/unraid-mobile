@@ -12,9 +12,11 @@ import (
 	"time"
 
 	systemadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/system"
+	storageadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/unraid/storage"
 	"github.com/unraid-mobile/unraid-mobile/internal/api"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/capability"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/operation"
+	"github.com/unraid-mobile/unraid-mobile/internal/app/storage"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/system"
 )
 
@@ -37,9 +39,13 @@ func main() {
 	metrics := system.NewService(reader, time.Now)
 	metrics.Collect(ctx)
 	go metrics.Run(ctx)
+	storageMetrics := storage.NewService(storageadapter.NewReader(os.DirFS("/host")), time.Now)
+	storageMetrics.Collect(ctx)
+	go storageMetrics.Run(ctx)
 	// Write capabilities stay unavailable until verified on the target host.
 	apiHandler := api.NewServer(api.Config{
 		System:       metrics,
+		Storage:      storageMetrics,
 		Capabilities: capability.Set{},
 		Operations:   operation.NewStore(time.Now),
 	})

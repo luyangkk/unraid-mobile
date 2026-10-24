@@ -1,9 +1,15 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Box, HardDrive, RefreshCw } from "lucide-react";
+import { Activity, Box, RefreshCw } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "./components/ui/button";
 import { SystemPanel } from "./features/system/SystemPanel";
-import { getCapabilities, getSystem, type SystemSnapshot } from "./lib/api";
+import { StoragePanel } from "./features/storage/StoragePanel";
+import {
+  getCapabilities,
+  getSystem,
+  getStorage,
+  type SystemSnapshot,
+} from "./lib/api";
 import { subscribeSystem } from "./lib/stream";
 import {
   appendPoint,
@@ -25,6 +31,13 @@ function App() {
     queryKey: ["capabilities"],
     queryFn: () => getCapabilities(),
     staleTime: 30000,
+  });
+  const storage = useQuery({
+    queryKey: ["storage"],
+    queryFn: ({ signal }) => getStorage(signal),
+    refetchInterval: 2000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
   const [connection, setConnection] = useState<Connection>("connecting");
   const [points, setPoints] = useState<Point[]>([]);
@@ -86,6 +99,7 @@ function App() {
           onClick={() => {
             setRevision((value) => value + 1);
             void capabilities.refetch();
+            void storage.refetch();
           }}
         >
           <RefreshCw
@@ -143,11 +157,16 @@ function App() {
                 : "Adapter not connected"
           }
         />
-        <StatusCard
-          icon={<HardDrive aria-hidden="true" />}
-          title="Storage"
-          detail="Adapter not connected"
-        />
+        {storage.data ? (
+          <StoragePanel snapshot={storage.data} stale={storage.isError} />
+        ) : (
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-lg font-semibold">Storage</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              {storage.error ? storage.error.message : "Loading storage…"}
+            </p>
+          </section>
+        )}
       </div>
     </main>
   );

@@ -7,7 +7,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/luyangkk/unraid-mobile/issues</Support>
   <Project>https://github.com/luyangkk/unraid-mobile</Project>
-  <Overview>Unraid Mobile read-only system metrics preview. Mount /proc and /sys read-only for CPU, memory, network and CPU temperature. Missing host data is shown explicitly. Docker/VM/Array/Parity operations are not enabled. No privileged access is required for the system metrics preview.</Overview>
+  <Overview>Unraid Mobile read-only system and storage preview. Mount /proc, /sys and /var/local/emhttp read-only for metrics, array and parity state, pool capacity and disk temperature. Missing host data is shown explicitly. Docker/VM/Array/Parity operations are not enabled. No privileged access is required.</Overview>
   <Category>Tools:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <ExtraParams/>
@@ -16,5 +16,6 @@
   <Config Name="Web UI" Target="8080" Default="18080" Mode="tcp" Description="Open the web interface on this host port." Type="Port" Display="always" Required="true" Mask="false">18080</Config>
   <Config Name="Host procfs" Target="/host/proc" Default="/proc" Mode="ro" Description="Read-only host process and metrics filesystem." Type="Path" Display="always" Required="true" Mask="false">/proc</Config>
   <Config Name="Host sysfs" Target="/host/sys" Default="/sys" Mode="ro" Description="Read-only host CPU sensors." Type="Path" Display="always" Required="true" Mask="false">/sys</Config>
+  <Config Name="Unraid storage state" Target="/host/var/local/emhttp" Default="/var/local/emhttp" Mode="ro" Description="Read-only storage metadata. Required for Array, Parity, Pools and disk capacity/temperature." Type="Path" Display="always" Required="true" Mask="false">/var/local/emhttp</Config>
   <Config Name="Server name" Target="SERVER_NAME" Default="Tower" Mode="" Description="Display name for this Unraid server." Type="Variable" Display="always" Required="false" Mask="false">Tower</Config>
 </Container>

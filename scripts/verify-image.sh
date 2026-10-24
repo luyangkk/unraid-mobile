@@ -37,6 +37,7 @@ esac
 curl -fsS "$base_url$asset_path" -o /dev/null
 curl -fsS "$base_url/api/v1/capabilities" | grep -q '"docker":false'
 curl -fsS "$base_url/api/v1/system" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["available"] is False and d["reason"] and d["cpuUsage"] is None'
+curl -fsS "$base_url/api/v1/storage" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["available"] is False and "/host/var/local/emhttp" in d["reason"]'
 
 # Only synthetic fixtures are mounted, never the CI runner's live /proc or /sys.
 docker run -d --name "$fixture_container" -p 127.0.0.1::8080 \
@@ -53,4 +54,6 @@ curl -fsS "$fixture_url/api/v1/system" | python3 -c 'import json,sys; d=json.loa
 # curl 28 is expected: this is an intentionally bounded read of a live stream.
 stream="$(curl -fsSN --max-time 3 "$fixture_url/api/v1/events" || test "$?" = 28)"
 printf '%s' "$stream" | python3 -c 'import json,sys; text=sys.stdin.read(); samples=[json.loads(line[6:]) for line in text.splitlines() if line.startswith("data: ")]; assert "event: system.metrics" in text and len(samples)>=2 and all(d["available"] for d in samples) and samples[-1]["networkRXRate"]==0, text'
-echo 'Image smoke checks passed: health, frontend, asset, capabilities, host fixtures, SSE'
+curl -fsS "$fixture_url/api/v1/storage" | python3 -c 'import json,sys; text=sys.stdin.read(); d=json.loads(text); assert d["available"] and d["array"]["capacity"]["totalBytes"]==10240000 and d["array"]["diskCount"]==1 and d["pools"][0]["capacity"]["totalBytes"]==2048000 and d["pools"][0]["diskCount"]==2 and d["parity"]["state"]=="idle" and "csrf_token" not in text and "fixture-must-never-be-exported" not in text, text'
+curl -fsS "$fixture_url/api/v1/capabilities" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["array"]["read"] and not d["array"]["start"] and not d["array"]["stop"] and d["storage"]["read"]'
+echo 'Image smoke checks passed: health, frontend, asset, capabilities, host fixtures, SSE, storage'

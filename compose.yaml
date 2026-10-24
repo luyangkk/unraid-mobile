@@ -11,7 +11,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/libvirt:/var/run/libvirt
       - /boot:/host/boot:ro
-      - /var/local/emhttp:/host/var/local/emhttp
+      - /var/local/emhttp:/host/var/local/emhttp:ro
     environment:
       TZ: Asia/Shanghai
     restart: unless-stopped
@@ -27,4 +27,4 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/libvirt:/var/run/libvirt
       - /boot:/host/boot:ro
-      - /var/local/emhttp:/host/var/local/emhttp
+      - /var/local/emhttp:/host/var/local/emhttp:ro

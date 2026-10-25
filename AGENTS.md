@@ -41,7 +41,7 @@
 - 格式化复用 `lib/system.ts`，统一 1024 进制单位和 `/s`；未知值显示 `—` 或 unavailable。CPU 趋势仅在浏览器内存保留最多 60 个去重样本，用 SVG 绘制，不作为历史监控。
 - 延续 Slate 深色表面、Cyan 强调、Emerald 活跃、Amber 提示；保持移动单列、`max-w-md`、320px 最小视口和上下安全区。复用系统字体、等宽数字及现有圆角，避免数值更新造成布局跳动。
 - System 指标集中在一个面板，Storage 按 Array/Parity/Pools/Disks 分组，Disks 与诊断用 `details/summary` 折叠；磁盘行显示摘要，点击后用 AppSheet 展示详情。Button 保留至少 44px 高度、焦点和禁用反馈；图标按钮有可读标签，状态含义不能只靠颜色。
-- 业务组件只使用 `components/app/AppSheet`，不直接依赖 Radix Dialog；动画、拖动阈值和减少动画偏好集中在 `lib/motion.ts`。AppSheet 处理模态焦点、关闭后的焦点返回、页面滚动锁定、内部滚动和底部安全区，拖动仅由把手开始；reduced-motion 禁用拖动和位移动画。
+- 业务组件只使用 `components/app/AppSheet`，不直接依赖 Radix Dialog；动画、手势阈值和减少动画偏好集中在 `lib/motion.ts`。AppSheet 处理模态焦点、关闭后的焦点返回、页面滚动锁定、内部滚动和底部安全区；纵向拖动仅由把手开始，面板支持以水平位移为主的右划关闭，忽略交互控件上的起始手势，保留内容纵向滚动和双指缩放；reduced-motion 禁用手势关闭和位移动画。
 - 磁盘选择只在 StoragePanel 本地保存 `name`，每次从当前快照重新查找，不请求新数据；磁盘消失或采集不可用后停止展示旧详情，stale 提示与采样时间同步传入 Sheet。休眠盘始终显示 `Temp —`。Home Overview 不提供磁盘触发入口。
 - Docker 按 Running / Stopped / Other 分组，Stopped 默认折叠；Running 折叠偏好可存 localStorage，不保存业务快照。使用通用本地图标，未验证 metadata 前不猜测图标字段或路径。读展示不增加动作按钮。
 - Home 仅显示 Running 容器和 VM、Array/Parity 状态及 Pool 容量摘要；完整 Stopped / Other 与磁盘详情留在独立页面。离线、Query paused、刷新失败及恢复期间保留旧样本样式和采样时间，成功刷新后撤下旧样本标记。

@@ -15,6 +15,7 @@ afterEach(async () => {
 async function mountSheet(reduced = true) {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   let reduce = reduced;
+  let closeCount = 0;
   const listeners = new Set<() => void>();
   vi.stubGlobal("matchMedia", () => ({
     get matches() { return reduce; },
@@ -28,10 +29,15 @@ async function mountSheet(reduced = true) {
   // Harness keeps application controls outside the modal for focus assertions.
   function Harness() {
     const [open, setOpen] = useState(false);
+    // changeOpen counts dismissal requests independently of the resulting state.
+    function changeOpen(value: boolean) {
+      if (!value) closeCount++;
+      setOpen(value);
+    }
     return <>
       <button ref={trigger} onClick={() => setOpen(true)}>Open details</button>
       <button>Background action</button>
-      <AppSheet open={open} onOpenChange={setOpen} title="Disk details"
+      <AppSheet open={open} onOpenChange={changeOpen} title="Disk details"
         description="Current read-only sample" returnFocusRef={trigger}
         footer={<button>Footer action</button>}>
         <p>Read only</p><button>Body action</button>
@@ -46,6 +52,7 @@ async function mountSheet(reduced = true) {
   await act(async () => trigger.current!.click());
   return {
     host, trigger,
+    get closeCount() { return closeCount; },
     // setReduced delivers an operating-system preference change while open.
     async setReduced(value: boolean) {
       await act(async () => { reduce = value; listeners.forEach((listener) => listener()); });
@@ -54,15 +61,22 @@ async function mountSheet(reduced = true) {
 }
 
 // settleClose lets presence removal complete before checking restored focus.
-async function settleClose() {
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 80)); });
+async function settleClose(duration = 80) {
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, duration)); });
 }
 
-// pointer sends actual pointer events through Motion's gesture listeners.
-async function pointer(target: EventTarget, type: string, y: number) {
+// pointer sends actual pointer events through the sheet's gesture listeners.
+async function pointer(
+  target: EventTarget, type: string, y: number, x = 10,
+  pointerId = 1, isPrimary = true, pointerType = "mouse",
+) {
   await act(async () => {
-    const event = new MouseEvent(type, { bubbles: true, clientY: y, clientX: 10, button: 0 });
-    Object.defineProperty(event, "pointerType", { value: "mouse" });
+    const event = new MouseEvent(type, { bubbles: true, clientY: y, clientX: x, button: 0 });
+    Object.defineProperties(event, {
+      pointerType: { value: pointerType },
+      pointerId: { value: pointerId },
+      isPrimary: { value: isPrimary },
+    });
     target.dispatchEvent(event);
     await new Promise((resolve) => setTimeout(resolve, 35));
   });
@@ -150,4 +164,144 @@ it("cancels an old held gesture before closing and reopening", async () => {
   await pointer(window, "pointerup", 160);
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 650)); });
   expect(document.querySelector('[role="dialog"]')).toBe(reopened);
+});
+
+it("closes after a right swipe in the body and restores focus and scrolling", async () => {
+  const { trigger } = await mountSheet(false);
+  await pointer(document.querySelector("[data-sheet-body] p")!, "pointerdown", 0);
+  await pointer(window, "pointermove", 20, 150);
+  await pointer(window, "pointerup", 20, 150);
+  await settleClose(650);
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  // Radix defers close autofocus until after presence has unmounted the dialog.
+  await settleClose();
+  expect(document.activeElement).toBe(trigger.current);
+  expect(document.body.hasAttribute("data-scroll-locked")).toBe(false);
+});
+
+it.each([
+  ["short", 30, 5],
+  ["leftward", -150, 5],
+  ["vertical", 20, 160],
+  ["diagonal", 150, 160],
+] as const)("keeps the sheet open after a %s body gesture", async (_name, x, y) => {
+  await mountSheet(false);
+  const dialog = document.querySelector('[role="dialog"]');
+  await pointer(document.querySelector("[data-sheet-body] p")!, "pointerdown", 0);
+  await pointer(window, "pointermove", y, x);
+  await pointer(window, "pointerup", y, x);
+  await settleClose();
+  expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+});
+
+it("keeps the sheet open after a canceled right swipe", async () => {
+  await mountSheet(false);
+  const dialog = document.querySelector('[role="dialog"]');
+  await pointer(document.querySelector("[data-sheet-body] p")!, "pointerdown", 0);
+  await pointer(window, "pointermove", 10, 150);
+  await pointer(window, "pointercancel", 10, 150);
+  await settleClose();
+  expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+});
+
+it.each(["[data-sheet-body] button", "[data-sheet-handle]"])(
+  "does not dismiss a right swipe that starts on %s", async (selector) => {
+    await mountSheet(false);
+    const dialog = document.querySelector('[role="dialog"]');
+    await pointer(document.querySelector(selector)!, "pointerdown", 0);
+    await pointer(window, "pointermove", 0, 150);
+    await pointer(window, "pointerup", 0, 150);
+    await settleClose();
+    expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+  },
+);
+
+it("discards a held body swipe across closing and reopening", async () => {
+  const { trigger } = await mountSheet(false);
+  await pointer(document.querySelector("[data-sheet-body] p")!, "pointerdown", 0);
+  await pointer(window, "pointermove", 0, 150);
+  await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Close sheet"]')!.click());
+  await act(async () => trigger.current!.click());
+  const reopened = document.querySelector('[role="dialog"]');
+  await pointer(window, "pointermove", 0, 180);
+  await pointer(window, "pointerup", 0, 180);
+  await settleClose(650);
+  expect(document.querySelector('[role="dialog"]')).toBe(reopened);
+});
+
+it("discards a held swipe when reduced motion is enabled and then disabled", async () => {
+  const sheet = await mountSheet(false);
+  const dialog = document.querySelector('[role="dialog"]');
+  await pointer(document.querySelector("[data-sheet-body] p")!, "pointerdown", 0);
+  await pointer(window, "pointermove", 0, 150);
+  await sheet.setReduced(true);
+  await sheet.setReduced(false);
+  await pointer(window, "pointerup", 0, 150);
+  await settleClose();
+  expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+});
+
+it("does not dismiss a non-primary pointer's right swipe", async () => {
+  await mountSheet(false);
+  const dialog = document.querySelector('[role="dialog"]');
+  await pointer(document.querySelector("[data-sheet-body] p")!, "pointerdown", 0, 10, 2, false);
+  await pointer(window, "pointermove", 0, 150, 2, false);
+  await pointer(window, "pointerup", 0, 150, 2, false);
+  await settleClose();
+  expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+});
+
+it.each(["reopen", "preference change"])(
+  "does not reuse an old touch offset for a new mouse swipe after %s", async (change) => {
+    const sheet = await mountSheet(false);
+    await pointer(document.querySelector("[data-sheet-body] p")!, "pointerdown", 0, 10, 2, true, "touch");
+    await pointer(window, "pointermove", 0, 150, 2, true, "touch");
+    if (change === "reopen") {
+      await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Close sheet"]')!.click());
+      await act(async () => sheet.trigger.current!.click());
+    } else {
+      await sheet.setReduced(true);
+      await sheet.setReduced(false);
+    }
+    const dialog = document.querySelector('[role="dialog"]');
+    await pointer(document.querySelector("[data-sheet-body] p")!, "pointerdown", 0, 200);
+    await pointer(window, "pointermove", 0, 205);
+    await pointer(window, "pointerup", 0, 205);
+    await settleClose(650);
+    expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+    await pointer(window, "pointerup", 0, 180, 2, true, "touch");
+    expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+  },
+);
+
+it("does not request another dismissal from the exiting panel", async () => {
+  const sheet = await mountSheet(false);
+  const content = document.querySelector("[data-sheet-body] p")!;
+  await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Close sheet"]')!.click());
+  await pointer(content, "pointerdown", 0);
+  await pointer(window, "pointermove", 0, 150);
+  await pointer(window, "pointerup", 0, 150);
+  expect(sheet.closeCount).toBe(1);
+});
+
+it("closes after a fast right flick below the distance threshold", async () => {
+  await mountSheet(false);
+  await pointer(document.querySelector("[data-sheet-body] p")!, "pointerdown", 0);
+  await pointer(window, "pointermove", 0, 90);
+  await pointer(window, "pointerup", 0, 90);
+  await settleClose(650);
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+});
+
+it("discards a primary touch swipe when a second finger starts", async () => {
+  await mountSheet(false);
+  const dialog = document.querySelector('[role="dialog"]');
+  const content = document.querySelector("[data-sheet-body] p")!;
+  await pointer(content, "pointerdown", 0, 10, 2, true, "touch");
+  await pointer(window, "pointermove", 0, 150, 2, true, "touch");
+  await pointer(content, "pointerdown", 0, 100, 3, false, "touch");
+  await pointer(window, "pointerup", 0, 100, 3, false, "touch");
+  await pointer(window, "pointerup", 0, 180, 2, true, "touch");
+  await settleClose(650);
+  expect(document.querySelector('[role="dialog"]')).toBe(dialog);
 });

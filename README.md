@@ -34,10 +34,13 @@ and sample time. The open sheet follows the latest Storage snapshot without
 another request. Stale samples keep their warning; removed disks stop showing
 old details. Standby disks always show `Temp —`.
 
-Close with the button, backdrop, Escape or a downward handle drag. Short drags
-spring back. The modal contains keyboard focus, restores the selected row on
-close, locks background scrolling and scrolls long details independently.
-Reduced motion disables dragging and sliding animations. Home has no disk rows.
+Close with the button, backdrop, Escape, a downward handle drag or a right swipe
+inside the panel. Right swipes must be predominantly horizontal; short slow, leftward,
+vertical and canceled gestures keep the panel open. Swipes starting on controls
+are ignored. Short handle drags spring back. The modal contains keyboard focus,
+restores the selected row on close, locks background scrolling and scrolls long
+details independently. Reduced motion disables gesture dismissal and sliding
+animations. Home has no disk rows.
 
 The Go server serves the embedded frontend for valid extensionless GET/HEAD
 client routes, including direct visits and refreshes. Missing assets return

@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react";
 export const sheetMotion = {
   dismissOffset: 100,
   dismissVelocity: 700,
+  swipeDirectionRatio: 1.5,
   fade: { duration: 0.18 },
   reduced: { duration: 0 },
   spring: { type: "spring", stiffness: 400, damping: 38 } as const,
@@ -11,6 +12,13 @@ export const sheetMotion = {
 // shouldDismissSheet accepts only a sufficiently large or fast downward gesture.
 export function shouldDismissSheet(offset: number, velocity: number): boolean {
   return offset > sheetMotion.dismissOffset || velocity > sheetMotion.dismissVelocity;
+}
+
+// shouldDismissSheetSwipe rejects leftward and vertically dominated pan gestures.
+export function shouldDismissSheetSwipe(offsetX: number, offsetY: number, velocityX: number): boolean {
+  return offsetX > 0
+    && offsetX > Math.abs(offsetY) * sheetMotion.swipeDirectionRatio
+    && shouldDismissSheet(offsetX, velocityX);
 }
 
 // subscribeReducedMotion tracks preference changes even while a sheet is open.

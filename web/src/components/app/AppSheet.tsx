@@ -1,7 +1,7 @@
 import { AnimatePresence, animate, motion, useDragControls, useMotionValue } from "motion/react";
 import { useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 import { X } from "lucide-react";
-import { sheetMotion, shouldDismissSheet, useReducedMotion } from "../../lib/motion";
+import { sheetMotion, shouldDismissSheet, shouldDismissSheetSwipe, useReducedMotion } from "../../lib/motion";
 import {
   Sheet, SheetClose, SheetContent, SheetDescription, SheetOverlay, SheetPortal, SheetTitle,
 } from "../ui/sheet";
@@ -16,7 +16,7 @@ export type AppSheetProps = {
   returnFocusRef?: RefObject<HTMLElement | null>;
 };
 
-// AppSheet centralizes accessible mobile modality and handle-only dismissal.
+// AppSheet centralizes modality, right swipes and handle-only vertical dragging.
 export function AppSheet({
   open, onOpenChange, title, description, children, footer, returnFocusRef,
 }: AppSheetProps) {
@@ -25,17 +25,58 @@ export function AppSheet({
   const dragY = useMotionValue(0);
   const previousFocus = useRef<HTMLElement | null>(null);
   const dragStartedAt = useRef<number | null>(null);
+  const gestureEnabled = useRef(false);
+  const changeOpen = useRef(onOpenChange);
+  const swipeStarted = useRef<{
+    timeStamp: number; pointerId: number; pointerType: string; x: number; y: number;
+  } | null>(null);
+  useLayoutEffect(() => { changeOpen.current = onOpenChange; });
   useLayoutEffect(() => {
+    gestureEnabled.current = open && !reduced;
     controls.cancel();
     dragStartedAt.current = null;
+    swipeStarted.current = null;
     dragY.stop();
     if (open || reduced) dragY.set(0);
     return () => {
+      gestureEnabled.current = false;
       controls.cancel();
       dragStartedAt.current = null;
+      swipeStarted.current = null;
       dragY.stop();
     };
   }, [open, reduced, controls, dragY]);
+  useLayoutEffect(() => {
+    if (!open || reduced) return;
+    // cancelSwipe discards a held gesture when another pointer starts anywhere.
+    function cancelSwipe() {
+      swipeStarted.current = null;
+    }
+    // endSwipe uses only the originating pointer and its own start coordinates.
+    function endSwipe(event: PointerEvent) {
+      const started = swipeStarted.current;
+      if (!started || event.pointerId !== started.pointerId
+        || event.pointerType !== started.pointerType || event.timeStamp < started.timeStamp) return;
+      swipeStarted.current = null;
+      if (!gestureEnabled.current || event.type === "pointercancel") return;
+      const offsetX = event.clientX - started.x;
+      const offsetY = event.clientY - started.y;
+      const duration = event.timeStamp - started.timeStamp;
+      const velocityX = duration > 0 ? offsetX / duration * 1000 : 0;
+      if (shouldDismissSheetSwipe(offsetX, offsetY, velocityX)) {
+        changeOpen.current(false);
+      }
+    }
+    window.addEventListener("pointerdown", cancelSwipe, true);
+    window.addEventListener("pointerup", endSwipe, true);
+    window.addEventListener("pointercancel", endSwipe, true);
+    return () => {
+      cancelSwipe();
+      window.removeEventListener("pointerdown", cancelSwipe, true);
+      window.removeEventListener("pointerup", endSwipe, true);
+      window.removeEventListener("pointercancel", endSwipe, true);
+    };
+  }, [open, reduced]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -68,16 +109,30 @@ export function AppSheet({
               }}>
               <motion.section
                 className="flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border border-slate-700 bg-slate-900 text-slate-100 shadow-xl outline-none"
-                  style={{ y: reduced ? 0 : dragY, paddingBottom: "env(safe-area-inset-bottom)" }}
+                  style={{
+                    y: reduced ? 0 : dragY, paddingBottom: "env(safe-area-inset-bottom)",
+                    touchAction: reduced ? "auto" : "pan-y pinch-zoom",
+                  }}
                   drag={reduced ? false : "y"} dragListener={false}
                   dragControls={controls} dragConstraints={{ top: 0 }}
                   dragElastic={{ top: 0, bottom: 1 }} dragMomentum={false}
+                  onPointerDownCapture={(event) => {
+                    swipeStarted.current = null;
+                    if (gestureEnabled.current && event.isPrimary !== false && event.button === 0
+                      && event.target instanceof Element
+                      && !event.target.closest("[data-sheet-handle], button, a, input, textarea, select, [contenteditable]")) {
+                      swipeStarted.current = {
+                        timeStamp: event.timeStamp, pointerId: event.pointerId,
+                        pointerType: event.pointerType, x: event.clientX, y: event.clientY,
+                      };
+                    }
+                  }}
                   onDragEnd={(event, info) => {
                     if (dragStartedAt.current === null || event.timeStamp < dragStartedAt.current) return;
                     dragStartedAt.current = null;
-                    if (open && !reduced && event.type !== "pointercancel"
+                    if (gestureEnabled.current && event.type !== "pointercancel"
                       && shouldDismissSheet(info.offset.y, info.velocity.y)) {
-                      onOpenChange(false);
+                      changeOpen.current(false);
                     } else {
                       void animate(dragY, 0, reduced ? sheetMotion.reduced : sheetMotion.spring);
                     }
@@ -87,7 +142,7 @@ export function AppSheet({
                     className="flex h-11 shrink-0 items-center justify-center"
                     style={{ touchAction: reduced ? "auto" : "none" }}
                     onPointerDown={(event) => {
-                      if (open && !reduced && event.isPrimary !== false && event.button === 0) {
+                      if (gestureEnabled.current && event.isPrimary !== false && event.button === 0) {
                         dragStartedAt.current = event.timeStamp;
                         controls.start(event);
                       }

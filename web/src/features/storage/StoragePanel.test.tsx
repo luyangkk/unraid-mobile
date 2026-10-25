@@ -48,7 +48,7 @@ const sample: StorageSnapshot = {
   ],
   diagnostics: [],
 };
-it("shows real array capacity, pool capacity and disk details", () => {
+it("shows real array capacity, pool capacity and clickable disk summaries", () => {
   const html = renderToStaticMarkup(<StoragePanel snapshot={sample} />);
   for (const value of [
     "Storage",
@@ -57,7 +57,6 @@ it("shows real array capacity, pool capacity and disk details", () => {
     "cache",
     "disk1",
     "35",
-    "xfs",
     "started",
     "idle",
     "Active",
@@ -69,7 +68,8 @@ it("shows real array capacity, pool capacity and disk details", () => {
   expect(html).not.toContain(sample.timestamp);
   expect(html).not.toContain("opacity-60");
   expect(html).not.toContain("<a ");
-  expect(html).not.toContain("<button");
+  expect(html).toContain('aria-label="View disk1 details"');
+  expect(html).not.toContain("sdb");
 });
 it("shows Array, Parity and counted pool capacity summaries without disks or module diagnostics in overview", () => {
   const html = renderToStaticMarkup(
@@ -99,12 +99,14 @@ it("summarizes each pool capacity once and counts pools rather than devices in o
   expect(html.match(/2\.0 GiB \/ 8\.0 GiB/g)).toHaveLength(1);
   expect(html).not.toContain("Pools (6)");
 });
-it("keeps every disk, I/O metric and module diagnostic in default full mode", () => {
+it("keeps the Disks group and diagnostics while moving I/O details out of the list", () => {
   const html = renderToStaticMarkup(
     <StoragePanel snapshot={{ ...sample, diagnostics: ["Disk I/O unavailable"] }} />,
   );
-  for (const text of ["Disks (1)", "disk1", "Temp 35 °C", "Read —", "Write —", "Storage diagnostics", "Disk I/O unavailable"])
+  for (const text of ["Disks (1)", "disk1", "Temp 35 °C", "Storage diagnostics", "Disk I/O unavailable"])
     expect(html).toContain(text);
+  for (const text of ["Read —", "Write —", "sdb", "DISK_OK"])
+    expect(html).not.toContain(text);
 });
 it("keeps unavailable reasons and unknown or empty capacities in overview", () => {
   const missing = renderToStaticMarkup(
@@ -162,7 +164,7 @@ it.each([false, true])("retains stale collection reasons separately from refresh
   expect(html).toContain(`<time dateTime="${sample.timestamp}">`);
   expect(html).not.toContain("6.0 GiB");
 });
-it("allows long storage names and wide disk metrics to wrap at narrow widths", () => {
+it("allows long storage names and disk summaries to wrap at narrow widths", () => {
   const name = "verylongstoragename".repeat(8);
   const html = renderToStaticMarkup(
     <StoragePanel snapshot={{
@@ -173,9 +175,9 @@ it("allows long storage names and wide disk metrics to wrap at narrow widths", (
   );
   expect(html).toContain(name);
   expect(html).toMatch(/<span class="[^"]*min-w-0[^"]*break-words[^"]*">verylongstoragename/);
-  expect(html).toMatch(/<div class="[^"]*grid-cols-1[^"]*break-words[^"]*sm:grid-cols-3[^"]*">/);
-  expect(html).toContain("Read 123456789.0 TiB/s");
-  expect(html).toContain("Write 123456789.0 TiB/s");
+  expect(html).toMatch(/<button[^>]*class="[^"]*min-h-11[^"]*"/);
+  expect(html).not.toContain("Read 123456789.0 TiB/s");
+  expect(html).not.toContain("Write 123456789.0 TiB/s");
 });
 it("explains that a standby disk has no live temperature", () => {
   const html = renderToStaticMarkup(

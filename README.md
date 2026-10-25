@@ -28,6 +28,17 @@ pause and refresh snapshots on return. Cached samples remain visible with stale
 styling and sampling time during offline, paused, failed and pending recovery
 states. Business data stays in memory.
 
+On Storage, expand **Disks** and select a disk row to open its read-only details
+in AppSheet. Details include capacity, filesystem, current I/O, reported device
+and sample time. The open sheet follows the latest Storage snapshot without
+another request. Stale samples keep their warning; removed disks stop showing
+old details. Standby disks always show `Temp —`.
+
+Close with the button, backdrop, Escape or a downward handle drag. Short drags
+spring back. The modal contains keyboard focus, restores the selected row on
+close, locks background scrolling and scrolls long details independently.
+Reduced motion disables dragging and sliding animations. Home has no disk rows.
+
 The Go server serves the embedded frontend for valid extensionless GET/HEAD
 client routes, including direct visits and refreshes. Missing assets return
 real `404` responses; `/api` requests and `/healthz` retain their existing
@@ -102,6 +113,12 @@ Automated server, build and worker tests do not establish device compatibility.
 - Check Home, Docker, VM and Storage in portrait and landscape. Verify top and
   bottom safe areas, notches, the home indicator, bottom navigation and token
   input with the keyboard open; no controls should be clipped.
+- On Storage, open both an active and a standby disk. Check detail scrolling,
+  bottom safe-area spacing, close button, backdrop, handle dragging and snap-back.
+  Enable the device's Reduce Motion setting: dragging and slide animations should
+  stop, while button and keyboard dismissal remain usable. With a hardware
+  keyboard, check Tab containment and return focus. Observe existing temperatures
+  only; do not wake a standby disk to validate the display.
 - After installation completes, go offline before visiting the other routes.
   Reopen the installed app and test cold starts and deep links. The shell and
   connection screen should load without restoring metrics or business snapshots.

@@ -165,6 +165,59 @@ describe("primary pages", () => {
     } finally { await app.dispose(); vi.useRealTimers(); }
   });
 
+  it("opens disk details without extra reads and preserves two-second Storage polling", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const app = await mountApp("/storage");
+    try {
+      const before = app.requests.length;
+      const row = app.host.querySelector<HTMLButtonElement>('[aria-label="View disk1 details"]')!;
+      expect(row).not.toBeNull();
+      await act(async () => row.click());
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
+      expect(dialog.textContent).toContain("Temp 35 °C");
+      expect(app.requests).toHaveLength(before);
+      app.responses.set("/api/v1/storage", {
+        ...storageSample, timestamp: "2026-10-25T00:00:06Z",
+        disks: [{ ...storageSample.disks[0], temperature: 42 }],
+      });
+      app.requests.length = 0;
+      await act(async () => vi.advanceTimersByTimeAsync(6000));
+      await settle();
+      expect(app.requests.map(({ url }) => url)).toEqual([
+        "/api/v1/storage", "/api/v1/storage", "/api/v1/storage",
+      ]);
+      expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+      expect(dialog.textContent).toContain("Temp 42 °C");
+      expect(dialog.querySelector("time")?.textContent).toBe("2026-10-25T00:00:06Z");
+      await act(async () => dialog.querySelector<HTMLButtonElement>('[aria-label="Close sheet"]')!.click());
+      await settle();
+      expect(app.requests).toHaveLength(3);
+    } finally { await app.dispose(); vi.useRealTimers(); }
+  });
+
+  it("forwards offline and failed-refresh freshness into an open disk sheet", async () => {
+    const app = await mountApp("/storage");
+    try {
+      await act(async () => app.host.querySelector<HTMLButtonElement>('[aria-label="View disk1 details"]')!.click());
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
+      await act(async () => window.dispatchEvent(new Event("offline")));
+      await settle();
+      expect(dialog.textContent).toContain("Showing the last sample.");
+      expect(dialog.querySelector(".opacity-60")).not.toBeNull();
+      app.responses.set("/api/v1/storage", new Response(JSON.stringify({
+        error: { code: "REQUEST_FAILED", message: "Storage proxy unavailable", retryable: false },
+      }), { status: 503 }));
+      await act(async () => window.dispatchEvent(new Event("online")));
+      await settle();
+      expect(dialog.textContent).toContain("Storage refresh failed.");
+      expect(dialog.textContent).toContain("Storage proxy unavailable");
+      expect(dialog.querySelector("time")?.textContent).toBe(storageSample.timestamp);
+    } finally {
+      await act(async () => window.dispatchEvent(new Event("online")));
+      await app.dispose();
+    }
+  });
+
   it("pauses background polling and refreshes snapshots before reopening the foreground stream", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const app = await mountApp();

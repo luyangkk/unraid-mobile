@@ -5,7 +5,7 @@
 ## 范围与现状
 
 - 单台 Unraid、受控局域网、只读 System / Storage / Docker / VM；VM 的 libvirt 读取尚未经过真实主机验证。所有写能力关闭，Operation Store 和 Docker 动作路由没有真实执行器。
-- Go 1.24 + `net/http`；React 19、TypeScript、Vite、Tailwind CSS v4、TanStack Router / Query、shadcn/ui。当前为深色 SPA，支持 Home / Docker / VM / Storage 四个一级路由、固定底部导航、可选 `APP_TOKEN` 认证，以及生产构建的可安装 PWA 和离线静态应用壳；未接入 Bottom Sheet、Motion、Sonner 或主题切换。PWA 尚未经过真实 Android / iOS 设备验证。
+- Go 1.24 + `net/http`；React 19、TypeScript、Vite、Tailwind CSS v4、TanStack Router / Query、shadcn/ui。当前为深色 SPA，支持 Home / Docker / VM / Storage 四个一级路由、固定底部导航、可选 `APP_TOKEN` 认证，以及生产构建的可安装 PWA 和离线静态应用壳；磁盘详情使用 Radix Dialog 和 Motion 封装的 AppSheet，未接入 Sonner 或主题切换。PWA 和 AppSheet 尚未经过真实 Android / iOS 设备验证。
 - [技术方案](docs/spec-20260921-mvp.md)和[产品计划](docs/plan-20260921-mvp.md)包含后续目标，当前能力以代码、测试和 [README](README.md) 为准。未经真实主机验证的能力不得启用或宣称可用。
 - 不扩展多主机、历史监控、通用 Shell、Docker 编辑、Share 或系统设置管理，不缓存离线业务数据。
 
@@ -40,7 +40,9 @@
 - 首次无数据显示加载占位；刷新/断线保留已有样本并注明旧数据和采样时间。区分连接失败、采集不可用和空配置，保留不可用模块及原因，不伪造健康分、进度或成功结果。
 - 格式化复用 `lib/system.ts`，统一 1024 进制单位和 `/s`；未知值显示 `—` 或 unavailable。CPU 趋势仅在浏览器内存保留最多 60 个去重样本，用 SVG 绘制，不作为历史监控。
 - 延续 Slate 深色表面、Cyan 强调、Emerald 活跃、Amber 提示；保持移动单列、`max-w-md`、320px 最小视口和上下安全区。复用系统字体、等宽数字及现有圆角，避免数值更新造成布局跳动。
-- System 指标集中在一个面板，Storage 按 Array/Parity/Pools/Disks 分组，磁盘与诊断用 `details/summary` 折叠。Button 保留至少 44px 高度、焦点和禁用反馈；图标按钮有可读标签，状态含义不能只靠颜色。
+- System 指标集中在一个面板，Storage 按 Array/Parity/Pools/Disks 分组，Disks 与诊断用 `details/summary` 折叠；磁盘行显示摘要，点击后用 AppSheet 展示详情。Button 保留至少 44px 高度、焦点和禁用反馈；图标按钮有可读标签，状态含义不能只靠颜色。
+- 业务组件只使用 `components/app/AppSheet`，不直接依赖 Radix Dialog；动画、拖动阈值和减少动画偏好集中在 `lib/motion.ts`。AppSheet 处理模态焦点、关闭后的焦点返回、页面滚动锁定、内部滚动和底部安全区，拖动仅由把手开始；reduced-motion 禁用拖动和位移动画。
+- 磁盘选择只在 StoragePanel 本地保存 `name`，每次从当前快照重新查找，不请求新数据；磁盘消失或采集不可用后停止展示旧详情，stale 提示与采样时间同步传入 Sheet。休眠盘始终显示 `Temp —`。Home Overview 不提供磁盘触发入口。
 - Docker 按 Running / Stopped / Other 分组，Stopped 默认折叠；Running 折叠偏好可存 localStorage，不保存业务快照。使用通用本地图标，未验证 metadata 前不猜测图标字段或路径。读展示不增加动作按钮。
 - Home 仅显示 Running 容器和 VM、Array/Parity 状态及 Pool 容量摘要；完整 Stopped / Other 与磁盘详情留在独立页面。离线、Query paused、刷新失败及恢复期间保留旧样本样式和采样时间，成功刷新后撤下旧样本标记。
 - PWA 使用 Vite `injectManifest` 生成带版本的静态预缓存，包含全部路由 chunk；只缓存规范的同源静态资源和符合条件的页面导航。API、health、SSE、Operation、外部请求及携带凭据的请求只走网络；编码或非法路径不能命中缓存，缺失资源不能回退为缓存 HTML。不缓存业务数据或令牌，不接入 Background Sync、Push 或离线写入。

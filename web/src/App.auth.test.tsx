@@ -7,6 +7,9 @@ import App from "./App";
 
 it("starts only capabilities until access is verified, then loads all panels with the same credential", async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  vi.stubGlobal("matchMedia", () => ({
+    matches: true, addEventListener() {}, removeEventListener() {},
+  }));
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   const token = "dashboard-session-fixture";
   sessionStorage.setItem("unraid-mobile.app-token", token);

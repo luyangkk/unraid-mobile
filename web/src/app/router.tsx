@@ -22,11 +22,17 @@ const storageRoute = createRoute({
 });
 const routeTree = rootRoute.addChildren([homeRoute, dockerRoute, vmRoute, storageRoute]);
 
+// PendingPage fills the Outlet while a lazy route chunk is being loaded.
+function PendingPage() {
+  return <p role="status" className="py-6 text-sm text-slate-400">Loading page…</p>;
+}
+
 // createAppRouter uses browser History while leaving server snapshots in Query Cache.
 export function createAppRouter() {
   return createRouter({
     routeTree, context: {}, defaultPreload: false,
     defaultPendingMs: 0, defaultPendingMinMs: 0,
+    defaultPendingComponent: PendingPage,
     scrollRestoration: true,
   });
 }

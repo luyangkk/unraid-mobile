@@ -51,10 +51,10 @@ export async function settle() {
 }
 
 // mountApp exercises the real router, authentication and fetch stream boundaries.
-export async function mountApp(path = "/", cached = true) {
+export async function mountApp(path = "/", cached = true, reduced = true) {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   vi.stubGlobal("matchMedia", () => ({
-    matches: true, addEventListener() {}, removeEventListener() {},
+    matches: reduced, addEventListener() {}, removeEventListener() {},
   }));
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   window.history.replaceState(null, "", path);

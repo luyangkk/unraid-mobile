@@ -1,5 +1,17 @@
 import { useSyncExternalStore } from "react";
 
+export const tabMotion = {
+  directionOffset: 12,
+  directionRatio: 1.5,
+  dismissOffset: 60,
+  flickOffset: 24,
+  flickVelocity: 600,
+  viewportEdge: 24,
+  clickWindow: 700,
+  enter: { opacity: 0.92, duration: 0.22 },
+  activeColor: 0.14,
+};
+
 export const sheetMotion = {
   dismissOffset: 100,
   dismissVelocity: 700,

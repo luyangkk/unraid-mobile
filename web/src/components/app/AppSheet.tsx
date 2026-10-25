@@ -91,7 +91,7 @@ export function AppSheet({
             </SheetOverlay>
           ) : null}
           {open ? (
-            <motion.div key="content"
+            <motion.div key="content" data-sheet-content
               className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-md"
               initial={reduced ? { opacity: 0 } : { y: "100%" }}
               animate={reduced ? { opacity: 1, y: 0 } : { y: 0 }}

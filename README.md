@@ -21,6 +21,16 @@ summaries. The other pages show the full resource lists and diagnostics. Fixed
 bottom navigation includes safe-area spacing, keyboard focus and current-page
 labels. Unknown client routes offer a return to Home.
 
+Swipe left in the page body or bottom navigation to move one Tab forward
+(Home → Docker → VM → Storage), or right to move back. The ends do not wrap.
+Only single-finger touch gestures participate; controls, horizontal scrollers,
+the viewport's outer 24px, headers and open or exiting sheets keep their own
+interaction. Vertical scrolling and pinch zoom remain available. A valid bottom
+swipe consumes its own click even at a boundary; normal taps still work.
+Pending navigation ignores further swipes. Committed Tab changes use a 220ms
+opacity entry on one mounted page; reduced motion skips the fade while keeping
+Tab swipes. Initial loading and live data updates do not replay it.
+
 One shared QueryClient and one shell-owned System SSE subscription survive page
 changes. Docker and Storage poll every two seconds, VM every three seconds;
 only the visible page's consumers poll. Home uses all three. Background pages
@@ -116,6 +126,14 @@ Automated server, build and worker tests do not establish device compatibility.
 - Check Home, Docker, VM and Storage in portrait and landscape. Verify top and
   bottom safe areas, notches, the home indicator, bottom navigation and token
   input with the keyboard open; no controls should be clipped.
+- In Android Chrome, iOS Safari and the installed PWA, swipe both directions in
+  the body and bottom links. Check one adjacent Tab per swipe, no wrapping or
+  accidental link activation at the ends, subsequent taps, vertical scrolling,
+  pinch zoom and browser edge-back gestures. Check fades on taps, Home entries
+  and browser back/forward; Reduce Motion must retain Tab swipes without fading.
+  While a disk sheet is open or exiting, its right swipe must never change Tab.
+  Throttle a lazy route chunk: confirm the loading placeholder, ignored repeated
+  swipes and working bottom links. Confirm no extra SSE or module polling.
 - On Storage, open both an active and a standby disk. Check detail scrolling,
   bottom safe-area spacing, close button, backdrop, handle dragging and snap-back.
   Enable the device's Reduce Motion setting: dragging and slide animations should

@@ -17,20 +17,116 @@ import (
 )
 
 const frontendPage = "<!doctype html><title>Unraid Mobile</title>"
+const frontendManifest = `{"name":"Unraid Mobile","start_url":"/","scope":"/","display":"standalone"}`
+const frontendWorker = "self.addEventListener('fetch', () => {})"
 
 // frontendTestFiles provides synthetic assets without touching embedded output.
 func frontendTestFiles() fs.FS {
 	return fstest.MapFS{
-		"index.html":            {Data: []byte(frontendPage)},
-		"assets/app.js":         {Data: []byte("console.log('asset')")},
-		"assets/app.css":        {Data: []byte("body{color:white}")},
-		"assets/license":        {Data: []byte("asset license")},
-		"robots.txt":            {Data: []byte("User-agent: *")},
-		"version":               {Data: []byte("development")},
-		"directory/file.txt":    {Data: []byte("not a directory listing")},
-		"with-index/index.html": {Data: []byte("directory index")},
-		".hidden":               {Data: []byte("private")},
-		"special":               {Mode: fs.ModeNamedPipe},
+		"index.html":                 {Data: []byte(frontendPage)},
+		"assets/app.js":              {Data: []byte("console.log('asset')")},
+		"assets/app.css":             {Data: []byte("body{color:white}")},
+		"assets/license":             {Data: []byte("asset license")},
+		"manifest.webmanifest":       {Data: []byte(frontendManifest)},
+		"sw.js":                      {Data: []byte(frontendWorker)},
+		"icons/icon-192.png":         {Data: []byte("\x89PNG\r\n\x1a\nsynthetic icon")},
+		"icons/icon-512.png":         {Data: []byte("\x89PNG\r\n\x1a\nsynthetic icon")},
+		"icons/maskable-512.png":     {Data: []byte("\x89PNG\r\n\x1a\nsynthetic icon")},
+		"icons/apple-touch-icon.png": {Data: []byte("\x89PNG\r\n\x1a\nsynthetic icon")},
+		"icons/favicon.png":          {Data: []byte("\x89PNG\r\n\x1a\nsynthetic icon")},
+		"robots.txt":                 {Data: []byte("User-agent: *")},
+		"version":                    {Data: []byte("development")},
+		"directory/file.txt":         {Data: []byte("not a directory listing")},
+		"with-index/index.html":      {Data: []byte("directory index")},
+		".hidden":                    {Data: []byte("private")},
+		"special":                    {Mode: fs.ModeNamedPipe},
+	}
+}
+
+// TestFrontendPWAAssets catches private assets, unstable MIME types and cached workers.
+func TestFrontendPWAAssets(t *testing.T) {
+	for _, mode := range []struct {
+		name, token string
+	}{{"LAN", ""}, {"authenticated", "pwa-test-credential"}} {
+		t.Run(mode.name, func(t *testing.T) {
+			t.Setenv("APP_TOKEN", mode.token)
+			handler := newFrontendHandler(api.NewServer(apiConfigFromEnvironment()), frontendTestFiles())
+			for _, tc := range []struct {
+				path, contentType, cacheControl, body string
+			}{
+				{"/manifest.webmanifest", "application/manifest+json", "", frontendManifest},
+				{"/sw.js", "text/javascript; charset=utf-8", "no-cache", frontendWorker},
+				{"/sw.js?version=next", "text/javascript; charset=utf-8", "no-cache", frontendWorker},
+				{"/icons/icon-192.png", "image/png", "", "\x89PNG\r\n\x1a\nsynthetic icon"},
+				{"/icons/icon-512.png", "image/png", "", "\x89PNG\r\n\x1a\nsynthetic icon"},
+				{"/icons/maskable-512.png", "image/png", "", "\x89PNG\r\n\x1a\nsynthetic icon"},
+				{"/icons/apple-touch-icon.png", "image/png", "", "\x89PNG\r\n\x1a\nsynthetic icon"},
+				{"/icons/favicon.png", "image/png", "", "\x89PNG\r\n\x1a\nsynthetic icon"},
+			} {
+				for _, method := range []string{http.MethodGet, http.MethodHead} {
+					t.Run(method+" "+tc.path, func(t *testing.T) {
+						response := httptest.NewRecorder()
+						handler.ServeHTTP(response, httptest.NewRequest(method, tc.path, nil))
+						if response.Code != 200 {
+							t.Fatalf("public PWA asset = %d, want 200", response.Code)
+						}
+						if got := response.Header().Get("Content-Type"); got != tc.contentType {
+							t.Errorf("Content-Type = %q, want %q", got, tc.contentType)
+						}
+						if got := response.Header().Get("Cache-Control"); got != tc.cacheControl {
+							t.Errorf("Cache-Control = %q, want %q", got, tc.cacheControl)
+						}
+						if response.Header().Get("Location") != "" {
+							t.Errorf("unexpected redirect: %v", response.Header())
+						}
+						wantBody := tc.body
+						if method == http.MethodHead {
+							wantBody = ""
+						}
+						if response.Body.String() != wantBody {
+							t.Errorf("body = %q, want %q", response.Body.String(), wantBody)
+						}
+						if response.Header().Get("Content-Length") != strconv.Itoa(len(tc.body)) {
+							t.Errorf("Content-Length = %q, want %d", response.Header().Get("Content-Length"), len(tc.body))
+						}
+					})
+				}
+			}
+		})
+	}
+}
+
+// TestFrontendPWABoundaries rejects missing, malformed and nonread PWA requests in both modes.
+func TestFrontendPWABoundaries(t *testing.T) {
+	for _, token := range []string{"", "pwa-test-credential"} {
+		t.Setenv("APP_TOKEN", token)
+		handler := newFrontendHandler(api.NewServer(apiConfigFromEnvironment()), frontendTestFiles())
+		for _, requestPath := range []string{
+			"/missing.webmanifest", "/missing-sw.js", "/icons/missing.png",
+			"/icons", "/icons/", "/icons/icon-192.png/child",
+			"//sw.js", "/%73w.js", "/icons/%69con-192.png", "/icons/../sw.js",
+			"/manifest%2ewebmanifest", "/sw.js/", "/sw.js/..",
+		} {
+			for _, method := range []string{http.MethodGet, http.MethodHead} {
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, httptest.NewRequest(method, requestPath, nil))
+				if response.Code != 404 || response.Header().Get("Location") != "" ||
+					strings.Contains(response.Body.String(), frontendPage) {
+					t.Fatalf("%s %s = %d %v %q", method, requestPath, response.Code, response.Header(), response.Body.String())
+				}
+				if method == http.MethodHead && response.Body.Len() != 0 {
+					t.Fatal("HEAD rejection returned a body")
+				}
+			}
+		}
+		for _, requestPath := range []string{"/manifest.webmanifest", "/sw.js", "/icons/icon-192.png"} {
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, requestPath, nil))
+			if response.Code != 405 || response.Header().Get("Allow") != "GET, HEAD" ||
+				response.Header().Get("Cache-Control") != "" {
+				t.Fatalf("nonread PWA request = %d %v", response.Code, response.Header())
+			}
+		}
 	}
 }
 
@@ -203,6 +299,8 @@ func TestFrontendAppToken(t *testing.T) {
 		"/api%2fv1/system", "/%2fapi/v1/events",
 		"/assets/../api/v1/capabilities", "/assets/%2e%2e/api/v1/capabilities",
 		"/assets%2f..%2fapi%2fv1/capabilities",
+		"/icons/../api/v1/capabilities", "/sw.js/../api/v1/events",
+		"/manifest.webmanifest/../api/v1/capabilities", "/icons/%2e%2e/api/v1/system",
 		"/api/v1/operations%2fop_1",
 	} {
 		t.Run(requestPath, func(t *testing.T) {

@@ -255,4 +255,28 @@ describe("authentication session gate", () => {
     expect(host.textContent).toContain("Protected dashboard");
     expect(sessionStorage.getItem(tokenKey)).toBe("network-session-token");
   });
+
+  it("recovers an offline cold boot on online without clearing a token or admitting business requests early", async () => {
+    sessionStorage.setItem(tokenKey, "offline-session-token");
+    respond = async () => { throw new TypeError("Network unavailable"); };
+    await mount();
+    expect(host.querySelector('input[type="password"]')).toBeNull();
+    expect(host.textContent).toContain("Couldn't verify access");
+    expect(sessionStorage.getItem(tokenKey)).toBe("offline-session-token");
+    expect(requests.map(({ url }) => url)).toEqual(["/api/v1/capabilities"]);
+
+    let finish: (value: Response) => void = () => {};
+    respond = (url) => url.endsWith("/capabilities")
+      ? new Promise((resolve) => { finish = resolve; })
+      : Promise.resolve(json({ available: false }));
+    await act(async () => window.dispatchEvent(new Event("online")));
+    await flush();
+    expect(requests.map(({ url }) => url)).toEqual(["/api/v1/capabilities", "/api/v1/capabilities"]);
+    expect(host.textContent).not.toContain("Protected dashboard");
+    await act(async () => finish(json({ docker: false, vm: false })));
+    await flush();
+    expect(host.textContent).toContain("Protected dashboard");
+    expect(new Headers(requests[1].init?.headers).get("Authorization")).toBe("Bearer offline-session-token");
+    expect(sessionStorage.getItem(tokenKey)).toBe("offline-session-token");
+  });
 });

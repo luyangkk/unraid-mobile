@@ -33,6 +33,85 @@ client routes, including direct visits and refreshes. Missing assets return
 real `404` responses; `/api` requests and `/healthz` retain their existing
 handlers. Static routes remain public when `APP_TOKEN` is enabled.
 
+## Installable PWA and offline shell
+
+The production build supports installation and an offline **static shell**.
+After a successful online visit and completed Service Worker installation,
+the shell and all route chunks can open without the server. This is not offline
+monitoring: API responses, metrics, resource snapshots, Operation results,
+health checks and SSE are never cached by the worker. Credentials are never
+stored in Cache Storage; the existing per-tab `sessionStorage` token behavior
+is unchanged. Business samples and the CPU trend remain in memory only.
+
+An offline cold start shows the shell and a connection error, not restored
+business data or a token prompt caused solely by a network failure. An existing
+tab can retain its last in-memory samples with stale styling and sample times.
+On recovery, capabilities must succeed before protected requests resume, and
+System fetches a fresh snapshot before opening one SSE connection.
+
+Installation and Service Workers require a **secure context**: HTTPS with a
+certificate trusted by the device, or localhost for local testing. A URL such
+as `http://10.0.0.66:18080` still works as the online web console, but a LAN IP
+over HTTP does not enable the offline PWA. A home-screen shortcut alone does
+not prove that a Service Worker is installed. Localhost on a phone refers to
+that phone, not the Unraid server.
+
+Use HTTPS, Tailscale HTTPS (for example, Tailscale Serve), or a trusted HTTPS
+reverse proxy in front of the Go server. Tailscale or WireGuard access to an
+HTTP LAN URL alone does not make it a secure context. Keep API traffic
+uncached, preserve the Authorization header, and disable proxy buffering for
+SSE. The Go server itself does not terminate TLS. `APP_TOKEN` controls API
+access; it is **not a replacement for HTTPS** and cannot encrypt credentials.
+
+The manifest `/manifest.webmanifest`, worker `/sw.js`, and `/icons/*.png` remain
+public in LAN and token-enabled modes. The server sends
+`application/manifest+json` for the manifest, a JavaScript MIME type for the
+worker, and `Cache-Control: no-cache` for `/sw.js` so browsers revalidate it.
+Only canonical same-origin static resources and eligible browser navigations
+can use the worker's static cache; missing assets never become cached HTML.
+Activation deletes old cache names after carrying their built JS/CSS into the
+current static cache, so a tab that has not refreshed can still load its old
+route chunks offline. A cache created by a later installation is left alone.
+If migration hits a storage limit, its source remains available for old static
+chunks and cleanup can retry on a later activation. Business responses are
+never carried between caches.
+
+A newly downloaded version offers an update banner. Select **Refresh** to
+activate it and reload this tab once. Dismissing the banner keeps the current
+version; another tab accepting an update does not force this tab to reload.
+Registration failures or unsupported browsers do not block the online console.
+Development mode does not register a worker by default; use a production build
+to check installation, offline behavior and updates.
+
+### Manual Android and iOS checklist
+
+These checks have **not been performed on real Android or iOS devices**.
+Automated server, build and worker tests do not establish device compatibility.
+
+- On Android Chrome, open the trusted HTTPS URL, finish the first online load,
+  install from the browser's install menu, and launch the home-screen app.
+- On iOS Safari, open the same HTTPS URL, use Share > Add to Home Screen, and
+  launch from the home screen. Confirm standalone launch and the intended icon.
+- Check Home, Docker, VM and Storage in portrait and landscape. Verify top and
+  bottom safe areas, notches, the home indicator, bottom navigation and token
+  input with the keyboard open; no controls should be clipped.
+- After installation completes, go offline before visiting the other routes.
+  Reopen the installed app and test cold starts and deep links. The shell and
+  connection screen should load without restoring metrics or business snapshots.
+- Disconnect an already running session. Check stale labels and sample times;
+  reconnect and verify capabilities succeeds before resource refreshes. A
+  transport failure must not erase the saved token or masquerade as a `401`.
+- With remote browser inspection, check that API, health and SSE responses and
+  credentials never appear in Cache Storage. Confirm a fresh System snapshot
+  precedes SSE and at most one active SSE remains after route changes,
+  background/foreground transitions and reconnection.
+- Publish a newer test build. Dismiss its update banner and confirm no reload;
+  then accept Refresh and confirm exactly one reload. Repeat with a second tab
+  accepting first to check that an unconfirmed tab is not reloaded.
+- Repeat the online/offline/recovery checks in LAN mode and with `APP_TOKEN`.
+  Also check an HTTP LAN IP: the online console should work without promising
+  Service Worker installation or offline support.
+
 ## Install the prebuilt image on Unraid
 
 Image: `ghcr.io/luyangkk/unraid-mobile:latest` (`linux/amd64`, including Intel N100).
@@ -103,7 +182,9 @@ before showing the input form again. Closing the tab ends the stored session.
 
 The server does **not** provide TLS: Bearer authentication over HTTP does not
 encrypt credentials or metrics. Do not expose the HTTP port directly to the
-internet. Outside a controlled LAN, use HTTPS, Tailscale or WireGuard.
+internet. Outside a controlled LAN, use HTTPS, Tailscale or WireGuard. The
+installable offline PWA still requires HTTPS or localhost, even over a VPN;
+`APP_TOKEN` is not a replacement for HTTPS.
 Template masking only hides the form value;
 the container environment is still accessible to administrators. Never publish
 it in logs, screenshots or diagnostics. Startup logs report only LAN mode or
@@ -275,8 +356,10 @@ mutation/cancellation endpoints or UI controls are provided.
 
 Pushing to `main` or manually running the workflow on `main` runs Go tests,
 frontend tests/build, builds the Linux amd64 image, and starts a temporary
-unprivileged container to verify health, the embedded UI, its JS asset, missing
-mount handling, SSE and storage against synthetic host fixtures. It also verifies
+unprivileged container to verify health, the embedded UI, its JS asset, PWA
+manifest fields and MIME types, all icons, the worker's revalidation header,
+deep links, asset `404` responses, missing mount handling, SSE and storage
+against synthetic host fixtures. It also verifies
 LAN mode and token-enabled API rejection/success using a disposable random
 credential generated at runtime, with public health and assets in both modes. Only
 then is that same image pushed to GHCR with `latest` and `sha-<full-commit-sha>`

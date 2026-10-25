@@ -17,6 +17,69 @@ cleanup() {
   docker rm -f "$auth_container" >/dev/null 2>&1 || true
 }
 
+# verify_public_frontend checks packaged PWA resources and routing without credentials.
+verify_public_frontend() {
+  public_url="$1"
+  expected_page="$2"
+  for client_path in / /docker /vm /storage /unknown/nested; do
+    if [ "$(curl -fsS "$public_url$client_path")" != "$expected_page" ]; then
+      echo 'Public deep link did not return the embedded shell' >&2
+      exit 1
+    fi
+  done
+
+  curl -fsS -i "$public_url/manifest.webmanifest" | python3 -c '
+import json,sys
+from email.parser import BytesParser
+head,body=sys.stdin.buffer.read().split(b"\r\n\r\n",1)
+status,raw_headers=head.split(b"\r\n",1)
+headers=BytesParser().parsebytes(raw_headers)
+assert b" 200 " in status and headers["Content-Type"]=="application/manifest+json", head
+manifest=json.loads(body)
+assert manifest["name"]=="Unraid Mobile" and manifest["short_name"], manifest
+assert manifest["start_url"]=="/" and manifest["scope"]=="/" and manifest["display"]=="standalone", manifest
+assert manifest["theme_color"] and manifest["background_color"], manifest
+icons={icon["src"]:icon for icon in manifest["icons"]}
+for source,size,purpose in (
+    ("/icons/icon-192.png","192x192","any"),
+    ("/icons/icon-512.png","512x512","any"),
+    ("/icons/maskable-512.png","512x512","maskable"),
+):
+    icon=icons[source]
+    assert icon["sizes"]==size and icon["type"]=="image/png" and purpose in icon.get("purpose","any").split(), icon
+'
+  for icon_name in icon-192.png icon-512.png maskable-512.png apple-touch-icon.png favicon.png; do
+    curl -fsS -i "$public_url/icons/$icon_name" | python3 -c '
+import sys
+from email.parser import BytesParser
+head,body=sys.stdin.buffer.read().split(b"\r\n\r\n",1)
+status,raw_headers=head.split(b"\r\n",1)
+headers=BytesParser().parsebytes(raw_headers)
+assert b" 200 " in status and headers["Content-Type"]=="image/png", head
+assert body.startswith(b"\x89PNG\r\n\x1a\n"), "Icon is not a PNG"
+'
+  done
+  curl -fsS -i "$public_url/sw.js" | python3 -c '
+import sys
+from email.parser import BytesParser
+head,body=sys.stdin.buffer.read().split(b"\r\n\r\n",1)
+status,raw_headers=head.split(b"\r\n",1)
+headers=BytesParser().parsebytes(raw_headers)
+assert b" 200 " in status and headers["Content-Type"]=="text/javascript; charset=utf-8", head
+assert headers["Cache-Control"]=="no-cache", head
+assert body.strip() and not body.lstrip().startswith(b"<") and b"__WB_MANIFEST" not in body, "Worker build is missing"
+'
+  for missing_path in /assets/missing.js /assets/missing /missing.webmanifest \
+    /missing-sw.js /icons/missing.png /icons /icons/ /sw.js/ \
+    //sw.js /%73w.js /icons/%69con-192.png /icons/../sw.js; do
+    status="$(curl -sS --path-as-is -o /dev/null -w '%{http_code}' "$public_url$missing_path")"
+    if [ "$status" != 404 ]; then
+      echo 'Missing or malformed public asset did not return 404' >&2
+      exit 1
+    fi
+  done
+}
+
 trap cleanup EXIT
 docker run -d --name "$container_name" -e APP_TOKEN= -p 127.0.0.1::8080 "$image_name" >/dev/null
 host_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}' "$container_name")"
@@ -39,6 +102,7 @@ case "$asset_path" in
   *) echo 'Embedded Vite entry asset is missing' >&2; exit 1 ;;
 esac
 curl -fsS "$base_url$asset_path" -o /dev/null
+verify_public_frontend "$base_url" "$home_page"
 curl -fsS "$base_url/api/v1/capabilities" | grep -q '"docker":false'
 curl -fsS "$base_url/api/v1/system" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["available"] is False and d["reason"] and d["cpuUsage"] is None'
 curl -fsS "$base_url/api/v1/storage" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["available"] is False and "/host/var/local/emhttp" in d["reason"]'
@@ -92,11 +156,14 @@ until [ "$(curl -s -o /dev/null -w '%{http_code}' "$auth_url/healthz" || true)" 
 done
 curl -fsS "$auth_url/" -o /dev/null
 curl -fsS "$auth_url$asset_path" -o /dev/null
+verify_public_frontend "$auth_url" "$home_page"
 
 for api_path in /api //api /api/v1/capabilities /api/v1/system /api/v1/storage \
   /api/v1/docker /api/v1/vms /api/v1/events /api/v1/operations/missing \
   /api/v1/unknown //api/v1/system /api/./v1/system /api/%2e%2e/healthz \
-  /outside/%2e%2e/api/v1/system /api%2fv1/system /%2fapi/v1/events; do
+  /outside/%2e%2e/api/v1/system /api%2fv1/system /%2fapi/v1/events \
+  /icons/../api/v1/capabilities /sw.js/../api/v1/events \
+  /manifest.webmanifest/../api/v1/capabilities /icons/%2e%2e/api/v1/system; do
   for method in GET POST OPTIONS; do
     status="$(curl -sS --path-as-is -X "$method" -o /dev/null -w '%{http_code}' "$auth_url$api_path")"
     if [ "$status" != 401 ]; then
@@ -135,4 +202,4 @@ if printf '%s' "$auth_logs" | grep -Fq "$app_token"; then
 fi
 printf '%s' "$auth_logs" | grep -q 'authentication enabled'
 unset app_token auth_logs auth_stream
-echo 'Image smoke checks passed: LAN/auth API, public health/assets, fixtures, SSE, disabled writes, missing Docker/VM'
+echo 'Image smoke checks passed: LAN/auth API, public PWA/health/assets, deep links, asset 404s, fixtures, SSE, disabled writes, missing Docker/VM'

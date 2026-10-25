@@ -72,6 +72,17 @@ export function SessionGate({ children }: {
     };
   }, [endSession, validate]);
 
+  useEffect(() => {
+    // retryOnline revalidates an offline cold boot before admitting protected consumers.
+    function retryOnline() {
+      if (state !== "checking" || verification.current) return;
+      restoreAppToken();
+      void validate(false);
+    }
+    window.addEventListener("online", retryOnline);
+    return () => window.removeEventListener("online", retryOnline);
+  }, [state, validate]);
+
   if (state === "ready") {
     return children({ logout: () => endSession(null), hasToken: getAppToken() !== null });
   }

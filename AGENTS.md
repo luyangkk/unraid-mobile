@@ -5,7 +5,7 @@
 ## 范围与现状
 
 - 单台 Unraid、受控局域网、只读 System / Storage / Docker / VM；VM 的 libvirt 读取尚未经过真实主机验证。所有写能力关闭，Operation Store 和 Docker 动作路由没有真实执行器。
-- Go 1.24 + `net/http`；React 19、TypeScript、Vite、Tailwind CSS v4、TanStack Router / Query、shadcn/ui。当前为深色 SPA，支持 Home / Docker / VM / Storage 四个一级路由、固定底部导航和可选 `APP_TOKEN` 认证；未接入 Bottom Sheet、Motion、Sonner、主题切换或可安装 PWA。
+- Go 1.24 + `net/http`；React 19、TypeScript、Vite、Tailwind CSS v4、TanStack Router / Query、shadcn/ui。当前为深色 SPA，支持 Home / Docker / VM / Storage 四个一级路由、固定底部导航、可选 `APP_TOKEN` 认证，以及生产构建的可安装 PWA 和离线静态应用壳；未接入 Bottom Sheet、Motion、Sonner 或主题切换。PWA 尚未经过真实 Android / iOS 设备验证。
 - [技术方案](docs/spec-20260921-mvp.md)和[产品计划](docs/plan-20260921-mvp.md)包含后续目标，当前能力以代码、测试和 [README](README.md) 为准。未经真实主机验证的能力不得启用或宣称可用。
 - 不扩展多主机、历史监控、通用 Shell、Docker 编辑、Share 或系统设置管理，不缓存离线业务数据。
 
@@ -17,6 +17,7 @@
 - `web/src/app` 提供持久 App Shell 和路由，`routes` 提供页面，`components/app` 提供通用导航。QueryClient 全局共享，SessionGate 在路由外；System SSE 与 CPU 趋势由 Shell 持有，切页不重建订阅或清空缓存。
 - 一个生产容器、一个 Go 进程同时提供 API 与嵌入的静态资源。Dockerfile 将 Vite 产物复制到 `cmd/server/web` 后编译；不手改 `web/dist` 或嵌入产物，生产不运行 Vite。
 - Go 仅对合法且无扩展名的 GET/HEAD 客户端路径回退到嵌入首页；`/assets` 下缺失文件、目录和非法路径返回真实 404。API 在静态路径校验前分流，health 保持 204。
+- PWA 固定使用 `/manifest.webmanifest`、`/sw.js` 和 `/icons/*.png`，scope 和 start URL 均为 `/`；启用 `APP_TOKEN` 后仍公开。Go 显式返回 manifest 的 `application/manifest+json` 和 worker 的 JavaScript MIME，`/sw.js` 使用 `Cache-Control: no-cache`；不能改变 API 认证、SSE 或静态路径校验边界。
 - 生产以 `deploy/unraid/unraid-mobile.xml` 为准：`Privileged=false`，只读挂载 `/proc → /host/proc`、`/sys → /host/sys`、`/var/local/emhttp → /host/var/local/emhttp`，Docker 展示可选挂载 `/var/run/docker.sock → /var/run/docker.sock:ro`。只读 socket 挂载不限制 API 权限，应用只能发送固定读取请求。`compose.yaml` 的高权限和额外挂载用于开发/Spike，不能作为生产权限模板。
 - `cmd/host-spike`、`internal/spike` 不属于生产请求链路。高权限 Spike 仅在用户明确授权的 Unraid 测试主机运行；`testdata/host` 保持合成数据，不替换为开发机或 CI 的真实数据。
 
@@ -42,6 +43,9 @@
 - System 指标集中在一个面板，Storage 按 Array/Parity/Pools/Disks 分组，磁盘与诊断用 `details/summary` 折叠。Button 保留至少 44px 高度、焦点和禁用反馈；图标按钮有可读标签，状态含义不能只靠颜色。
 - Docker 按 Running / Stopped / Other 分组，Stopped 默认折叠；Running 折叠偏好可存 localStorage，不保存业务快照。使用通用本地图标，未验证 metadata 前不猜测图标字段或路径。读展示不增加动作按钮。
 - Home 仅显示 Running 容器和 VM、Array/Parity 状态及 Pool 容量摘要；完整 Stopped / Other 与磁盘详情留在独立页面。离线、Query paused、刷新失败及恢复期间保留旧样本样式和采样时间，成功刷新后撤下旧样本标记。
+- PWA 使用 Vite `injectManifest` 生成带版本的静态预缓存，包含全部路由 chunk；只缓存规范的同源静态资源和符合条件的页面导航。API、health、SSE、Operation、外部请求及携带凭据的请求只走网络；编码或非法路径不能命中缓存，缺失资源不能回退为缓存 HTML。不缓存业务数据或令牌，不接入 Background Sync、Push 或离线写入。
+- PWA 注册和更新提示放在 SessionGate 外；开发环境默认不注册，注册失败不能阻断页面。新版本只有用户选择 Refresh 后才能激活并让当前页刷新一次，关闭提示或其他标签页接受更新都不能强制刷新当前页。离线冷启动不恢复业务数据；传输失败保留会话 token，恢复时先验证 capabilities，再恢复业务请求和单一 SSE。
+- 安装和 Service Worker 需要可信 HTTPS 或 localhost 安全上下文；局域网 IP 的 HTTP 地址仅支持在线页面，即使经过 VPN 也不具备 PWA 安全上下文。部署可用 HTTPS、Tailscale HTTPS 或可信 HTTPS 反向代理；`APP_TOKEN` 不能替代 HTTPS。Android / iOS 安装、离线启动、更新确认、横屏和安全区仍须按 README 做真实设备验证，不能用自动化测试代替。
 
 ## 操作与安全
 

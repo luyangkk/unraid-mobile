@@ -39,6 +39,14 @@ func newFrontendHandler(apiHandler http.Handler, staticFiles fs.FS) http.Handler
 			return
 		}
 
+		switch name {
+		case "manifest.webmanifest":
+			w.Header().Set("Content-Type", "application/manifest+json")
+		case "sw.js":
+			w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+
 		// Serve the selected regular file without index.html URL redirects.
 		request := r.Clone(r.Context())
 		request.URL.Path = "/"

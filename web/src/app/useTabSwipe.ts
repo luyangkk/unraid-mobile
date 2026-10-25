@@ -66,7 +66,8 @@ export function useTabSwipe(main: RefObject<HTMLElement | null>, nav: RefObject<
       const dx = Math.abs(event.clientX - held.x);
       const dy = Math.abs(event.clientY - held.y);
       if (!held.direction && Math.max(dx, dy) >= tabMotion.directionOffset) {
-        held.direction = dx >= tabMotion.directionRatio * dy ? "horizontal" : "vertical";
+        if (dx >= tabMotion.directionRatio * dy) held.direction = "horizontal";
+        else if (dy >= tabMotion.directionRatio * dx) held.direction = "vertical";
       }
     }
     // up confirms one destination on release and consumes its nav compatibility click.
@@ -94,7 +95,7 @@ export function useTabSwipe(main: RefObject<HTMLElement | null>, nav: RefObject<
     // lost resets tracking after cancellation or loss of pointer capture.
     function lost(event: PointerEvent) {
       pointers.delete(event.pointerId);
-      cancel();
+      if (gesture.current?.id === event.pointerId) cancel();
     }
     // click suppresses only the compatibility click belonging to a valid nav swipe.
     function click(event: MouseEvent) {

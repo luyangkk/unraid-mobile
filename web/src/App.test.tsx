@@ -93,7 +93,8 @@ describe("primary tab gestures", () => {
           x: x - (reason === "short" ? 20 : 90), y: reason === "diagonal" ? 220 : 150, time: 1100,
         });
         await pointer(main, reason === "cancel" ? "pointercancel" : reason === "lost" ? "lostpointercapture" : "pointerup", {
-          x: x - (reason === "short" ? 20 : 90), time: reason === "short" ? 6000 : 1200,
+          x: x - (reason === "short" ? 20 : 90), y: reason === "diagonal" ? 220 : 150,
+          time: reason === "short" ? 6000 : 1200,
         });
         if (reason === "multi") await pointer(document.body, "pointerup", { x, id: 2 });
         await settle();
@@ -117,6 +118,46 @@ describe("primary tab gestures", () => {
       await pointer(main, "pointerdown", { x: 220 });
       await pointer(main, "pointermove", { x: 130, time: 1100 });
       await app.navigate("VM");
+      await pointer(main, "pointerup", { x: 130, time: 1200 });
+      await settle();
+      expect(window.location.pathname).toBe("/vm");
+    } finally { await app.dispose(); }
+  });
+
+  it.each([-1, 1])("waits for an ambiguous diagonal start to become horizontal in direction %s", async (direction) => {
+    const app = await mountApp("/docker");
+    try {
+      const main = app.host.querySelector("main")!;
+      await pointer(main, "pointerdown", { x: 220 });
+      await pointer(main, "pointermove", { x: 220 + direction * 12, y: 160, time: 1020 });
+      await pointer(main, "pointermove", { x: 220 + direction * 90, y: 160, time: 1100 });
+      await pointer(main, "pointerup", { x: 220 + direction * 90, y: 160, time: 1200 });
+      await settle();
+      expect(window.location.pathname).toBe(direction < 0 ? "/vm" : "/");
+    } finally { await app.dispose(); }
+  });
+
+  it("locks a clearly vertical gesture after an ambiguous start", async () => {
+    const app = await mountApp("/docker");
+    try {
+      const main = app.host.querySelector("main")!;
+      await pointer(main, "pointerdown", { x: 220 });
+      await pointer(main, "pointermove", { x: 208, y: 160, time: 1020 });
+      await pointer(main, "pointermove", { x: 208, y: 190, time: 1040 });
+      await pointer(main, "pointermove", { x: 130, y: 190, time: 1100 });
+      await pointer(main, "pointerup", { x: 130, y: 190, time: 1200 });
+      await settle();
+      expect(window.location.pathname).toBe("/docker");
+    } finally { await app.dispose(); }
+  });
+
+  it("ignores capture loss from a different pointer during a held touch", async () => {
+    const app = await mountApp("/docker");
+    try {
+      const main = app.host.querySelector("main")!;
+      await pointer(main, "pointerdown", { x: 220 });
+      await pointer(main, "pointermove", { x: 130, time: 1100 });
+      await pointer(document.body, "lostpointercapture", { x: 130, id: 99, time: 1120 });
       await pointer(main, "pointerup", { x: 130, time: 1200 });
       await settle();
       expect(window.location.pathname).toBe("/vm");

@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useTabPageEntry } from "../app/useTabTransition";
 import { useDockerSnapshot, usePageData, useStorageSnapshot, useVMSnapshot } from "../app/pageData";
 import { LoadingPanel } from "../components/app/LoadingPanel";
 import { DockerPanel } from "../features/docker/DockerPanel";
@@ -10,6 +11,7 @@ const entryClass = "flex min-h-11 items-center justify-end rounded-lg px-2 text-
 
 // HomePage shows complete System telemetry and compact resource overviews.
 export function HomePage() {
+  useTabPageEntry("/");
   const { system, foreground, online } = usePageData();
   const docker = useDockerSnapshot();
   const vms = useVMSnapshot();

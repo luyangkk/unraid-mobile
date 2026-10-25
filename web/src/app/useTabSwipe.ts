@@ -2,6 +2,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, type RefObject } from "react";
 import { primaryNavigation } from "../components/app/primaryNavigation";
 import { tabMotion } from "../lib/motion";
+import type { TabTransitionController } from "./useTabTransition";
 
 const modalSelector = "[data-sheet-overlay], [data-sheet-content]";
 const controls = "button, a, summary, input, select, textarea, [contenteditable]:not([contenteditable='false']), [role='button'], [role='slider']";
@@ -22,19 +23,18 @@ function excludedStart(target: Element, main: HTMLElement) {
 }
 
 // useTabSwipe tracks touch pointers only while the authenticated Shell is mounted.
-export function useTabSwipe(main: RefObject<HTMLElement | null>, nav: RefObject<HTMLElement | null>) {
+export function useTabSwipe(main: RefObject<HTMLElement | null>, nav: RefObject<HTMLElement | null>, transition: TabTransitionController) {
   const router = useRouter();
   const gesture = useRef<Gesture | null>(null);
   useEffect(() => {
     const pointers = new Set<number>();
-    let navigating = false;
     let consumedClick: { id: number; time: number } | null = null;
     // cancel discards held input without scheduling navigation after recovery.
     function cancel() { gesture.current = null; }
     // blocked includes retained Sheet exit DOM and unresolved Router navigation.
     function blocked() {
       return document.hidden || !!document.querySelector(modalSelector)
-        || navigating || router.state.status === "pending" || router.state.isLoading;
+        || transition.isBusy() || router.state.status === "pending" || router.state.isLoading;
     }
     // down verifies real DOM containment instead of relying on Portal bubbling.
     function down(event: PointerEvent) {
@@ -110,8 +110,8 @@ export function useTabSwipe(main: RefObject<HTMLElement | null>, nav: RefObject<
       const index = primaryNavigation.findIndex(({ to }) => to === held.path);
       const destination = primaryNavigation[index + (dx < 0 ? 1 : -1)];
       if (!destination) return;
-      navigating = true;
-      void router.navigate({ to: destination.to }).catch(() => {}).finally(() => { navigating = false; });
+      const source = primaryNavigation[index];
+      void transition.requestSwipe({ from: source.to, to: destination.to }).catch(() => {});
     }
     // lost resets tracking after cancellation or loss of pointer capture.
     function lost(event: PointerEvent) {
@@ -173,5 +173,5 @@ export function useTabSwipe(main: RefObject<HTMLElement | null>, nav: RefObject<
       window.removeEventListener("click", click, true);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [router, main, nav]);
+  }, [router, main, nav, transition]);
 }

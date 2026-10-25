@@ -51,9 +51,9 @@ export async function settle() {
 }
 
 // mountApp exercises the real router, authentication and fetch stream boundaries.
-export async function mountApp(path = "/", cached = true, reduced = true) {
+export async function mountApp(path = "/", cached = true, reduced: boolean | MediaQueryList = true) {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  vi.stubGlobal("matchMedia", () => ({
+  vi.stubGlobal("matchMedia", () => typeof reduced === "object" ? reduced : ({
     matches: reduced, addEventListener() {}, removeEventListener() {},
   }));
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});

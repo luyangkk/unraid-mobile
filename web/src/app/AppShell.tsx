@@ -1,43 +1,24 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Outlet, useRouter } from "@tanstack/react-router";
-import { animate, motion, useMotionValue } from "motion/react";
-import { useLayoutEffect, useRef } from "react";
+import { Outlet } from "@tanstack/react-router";
+import { motion } from "motion/react";
+import { useRef } from "react";
 import { AppHeader } from "../components/app/AppHeader";
 import { BottomNavigation } from "../components/app/BottomNavigation";
 import { getCapabilities } from "../lib/api";
 import { shouldRetryRequest } from "../lib/query";
-import { tabMotion, useReducedMotion } from "../lib/motion";
-import { primaryNavigation } from "../components/app/primaryNavigation";
 import { rootRoute } from "./router";
 import { PageDataContext, usePageActivity } from "./pageData";
 import { useSystem } from "./useSystem";
 import { useTabSwipe } from "./useTabSwipe";
+import { TabEntryContext, useTabTransition } from "./useTabTransition";
 
 // AppShell stays mounted across routes so authentication, stream and trend persist.
 export function AppShell() {
   const main = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLElement>(null);
-  useTabSwipe(main, navigation);
-  const router = useRouter();
-  const reduced = useReducedMotion();
-  const opacity = useMotionValue(1);
-  const committedPath = useRef(router.state.location.pathname);
-  useLayoutEffect(() => {
-    opacity.stop();
-    opacity.set(1);
-    const unsubscribe = router.subscribe("onRendered", ({ toLocation }) => {
-      const path = toLocation.pathname;
-      if (committedPath.current === path) return;
-      committedPath.current = path;
-      opacity.stop();
-      opacity.set(1);
-      if (!reduced && primaryNavigation.some(({ to }) => to === path)) {
-        opacity.set(tabMotion.enter.opacity);
-        void animate(opacity, 1, { duration: tabMotion.enter.duration });
-      }
-    });
-    return () => { unsubscribe(); opacity.stop(); };
-  }, [router, reduced, opacity]);
+  const content = useRef<HTMLDivElement>(null);
+  const transition = useTabTransition(content, navigation);
+  useTabSwipe(main, navigation, transition);
   const { logout } = rootRoute.useRouteContext();
   const queryClient = useQueryClient();
   const system = useSystem();
@@ -62,7 +43,12 @@ export function AppShell() {
           </p>
         ) : null}
         {/* Include short-page whitespace and the content/nav gap in the swipe surface. */}
-        <motion.main ref={main} className="min-w-0 flex-1 pb-8" style={{ opacity, touchAction: "pan-y pinch-zoom" }}><Outlet /></motion.main>
+        <main ref={main} className="tab-swipe-surface flex min-w-0 flex-1 flex-col pb-8" style={{ touchAction: "pan-y pinch-zoom" }}>
+          <motion.div ref={content} data-tab-content className="min-w-0 flex-1"
+            style={{ x: transition.x, opacity: transition.opacity }}>
+            <TabEntryContext.Provider value={transition.preparePage}><Outlet /></TabEntryContext.Provider>
+          </motion.div>
+        </main>
         <BottomNavigation navigationRef={navigation} />
       </div>
     </PageDataContext.Provider>

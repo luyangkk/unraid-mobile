@@ -8,7 +8,12 @@ export const tabMotion = {
   flickVelocity: 600,
   viewportEdge: 24,
   clickWindow: 700,
-  enter: { opacity: 0.92, duration: 0.22 },
+  displacement: 32,
+  exit: { duration: 0.18 },
+  nativeEnter: { duration: 0.24 },
+  enter: { duration: 0.22 },
+  ease: [0.22, 1, 0.36, 1] as const,
+  captureBudget: 350,
   activeColor: 0.14,
 };
 

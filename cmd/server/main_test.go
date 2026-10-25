@@ -31,8 +31,7 @@ func TestProductionOperationRoutes(t *testing.T) {
 	store := operation.NewStore(time.Now)
 	op, _ := store.Create("docker.restart", "docker:plex")
 	apiHandler := api.NewServer(api.Config{Operations: store})
-	static := http.FileServer(http.FS(fstest.MapFS{"index.html": {Data: []byte("embedded page")}}))
-	handler := routeAPIRequests(apiHandler, static)
+	handler := newFrontendHandler(apiHandler, fstest.MapFS{"index.html": {Data: []byte("embedded page")}})
 	for _, requestPath := range []string{
 		"/api/v1/operations/" + op.ID,
 		"/api/v1/operations%2f" + op.ID,

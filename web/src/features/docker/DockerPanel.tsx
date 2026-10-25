@@ -13,10 +13,12 @@ import { formatBytes, formatRate } from "../../lib/system";
 // DockerPanel displays the cached read-only snapshot and independent freshness.
 export function DockerPanel({
   snapshot,
+  overview = false,
   stale = false,
   errorMessage,
 }: {
   snapshot: DockerSnapshot;
+  overview?: boolean;
   stale?: boolean;
   errorMessage?: string;
 }) {
@@ -40,69 +42,79 @@ export function DockerPanel({
         ) : null}
       </div>
       {stale ? (
-        <p className="mt-3 text-sm text-amber-200" role="status">
-          Docker refresh failed. Showing the last sample.
-          {errorMessage ? ` ${errorMessage}` : ""}
-        </p>
+        <div className="mt-3 break-words text-sm text-amber-200" role="status">
+          <p>
+            {errorMessage
+              ? `Docker refresh failed. Showing the last sample. ${errorMessage}`
+              : "Showing the last sample."}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Sampled <time dateTime={snapshot.timestamp}>{snapshot.timestamp}</time>
+          </p>
+        </div>
       ) : null}
-      {!snapshot.available ? (
-        <p className="mt-3 break-words text-sm text-amber-200" role="status">
-          {snapshot.reason || "Docker data unavailable"}
-        </p>
-      ) : (
-        <div className={stale ? "opacity-60" : ""}>
-          {snapshot.containers.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-400">No containers configured</p>
-          ) : (
-            <>
-              <details
-                className="mt-3"
-                open={!runningCollapsed}
-                onToggle={(event) => {
-                  const collapsed = !event.currentTarget.open;
-                  setRunningCollapsed(collapsed);
-                  saveRunningCollapsed(collapsed);
-                }}
-              >
-                <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline-cyan-300">
-                  Running ({groups.running.length})
-                </summary>
-                {groups.running.length === 0 ? (
-                  <p className="pb-3 text-sm text-slate-400">No running containers</p>
-                ) : groups.running.map((container) => (
-                  <ContainerRow key={container.id} container={container} />
-                ))}
-              </details>
-              <details className="mt-2 border-t border-slate-800">
-                <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline-cyan-300">
-                  Stopped ({groups.stopped.length})
-                </summary>
-                {groups.stopped.length === 0 ? (
-                  <p className="pb-3 text-sm text-slate-400">No stopped containers</p>
-                ) : groups.stopped.map((container) => (
-                  <ContainerRow key={container.id} container={container} />
-                ))}
-              </details>
-              {groups.other.length > 0 ? (
-                <div className="mt-2 border-t border-slate-800 pt-3">
-                  <h3 className="mb-3 text-sm font-medium">Other ({groups.other.length})</h3>
-                  {groups.other.map((container) => (
+      <div className={stale ? "opacity-60" : ""}>
+        {!snapshot.available ? (
+          <p className="mt-3 break-words text-sm text-amber-200" role="status">
+            {snapshot.reason || "Docker data unavailable"}
+          </p>
+        ) : (
+          <>
+            {snapshot.containers.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-400">No containers configured</p>
+            ) : (
+              <>
+                <details
+                  className="mt-3"
+                  open={!runningCollapsed}
+                  onToggle={(event) => {
+                    const collapsed = !event.currentTarget.open;
+                    setRunningCollapsed(collapsed);
+                    saveRunningCollapsed(collapsed);
+                  }}
+                >
+                  <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline-cyan-300">
+                    Running ({groups.running.length})
+                  </summary>
+                  {groups.running.length === 0 ? (
+                    <p className="pb-3 text-sm text-slate-400">No running containers</p>
+                  ) : groups.running.map((container) => (
                     <ContainerRow key={container.id} container={container} />
                   ))}
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
-      )}
-      {snapshot.diagnostics.length > 0 ? (
-        <details className="mt-3 text-xs text-slate-400">
-          <summary className="min-h-11 cursor-pointer py-3">Docker diagnostics</summary>
-          {snapshot.diagnostics.map((message, index) => (
-            <p key={index} className="mt-2 break-words">{message}</p>
-          ))}
-        </details>
-      ) : null}
+                </details>
+                {!overview ? (
+                  <details className="mt-2 border-t border-slate-800">
+                    <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline-cyan-300">
+                      Stopped ({groups.stopped.length})
+                    </summary>
+                    {groups.stopped.length === 0 ? (
+                      <p className="pb-3 text-sm text-slate-400">No stopped containers</p>
+                    ) : groups.stopped.map((container) => (
+                      <ContainerRow key={container.id} container={container} />
+                    ))}
+                  </details>
+                ) : null}
+                {!overview && groups.other.length > 0 ? (
+                  <div className="mt-2 border-t border-slate-800 pt-3">
+                    <h3 className="mb-3 text-sm font-medium">Other ({groups.other.length})</h3>
+                    {groups.other.map((container) => (
+                      <ContainerRow key={container.id} container={container} />
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </>
+        )}
+        {snapshot.diagnostics.length > 0 ? (
+          <details className="mt-3 text-xs text-slate-400">
+            <summary className="min-h-11 cursor-pointer py-3">Docker diagnostics</summary>
+            {snapshot.diagnostics.map((message, index) => (
+              <p key={index} className="mt-2 break-words">{message}</p>
+            ))}
+          </details>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -122,7 +134,7 @@ function ContainerRow({ container }: { container: DockerContainer }) {
           </p>
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-x-2 gap-y-2 text-xs tabular-nums text-slate-400">
+      <div className="mt-3 grid grid-cols-2 gap-x-2 gap-y-2 break-words text-xs tabular-nums text-slate-400">
         <span>CPU {container.cpuUsage === null ? "—" : `${container.cpuUsage.toFixed(1)}%`}</span>
         <span>RAM {container.memoryUsedBytes === null ? "—" : formatBytes(container.memoryUsedBytes)}</span>
         <span className="col-span-2">Uptime {formatContainerUptime(container.uptimeSeconds)}</span>

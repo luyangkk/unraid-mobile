@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DockerPanel } from "./DockerPanel";
 import type { DockerSnapshot } from "../../lib/api";
 
@@ -59,6 +59,62 @@ describe("DockerPanel", () => {
     expect(html).toMatch(/<details[^>]*open=""[^>]*><summary[^>]*>Running/);
     expect(html).toMatch(/<details class="[^"]*"><summary[^>]*>Stopped/);
     expect(html).not.toContain("Restart");
+    expect(html).not.toContain("<button");
+    expect(html).not.toContain("<a ");
+    expect(html).not.toContain("opacity-60");
+    expect(html).not.toContain("Sampled");
+  });
+
+  it("limits overview to the running summary and rows without detail navigation", () => {
+    const html = renderToStaticMarkup(<DockerPanel snapshot={sample} overview />);
+    for (const text of ["1 running", "Running (1)", "Plex", "CPU 3.5%", "RAM 1.0 GiB"])
+      expect(html).toContain(text);
+    for (const text of ["Stopped", "Other", "Backup", "Database", "<a ", "<button"])
+      expect(html).not.toContain(text);
+    expect(html).toMatch(/<details[^>]*open=""[^>]*><summary[^>]*>Running/);
+  });
+
+  it.each([false, true])("reuses the persisted Running fold in overview=%s", (overview) => {
+    const getItem = vi.fn(() => "true");
+    vi.stubGlobal("window", { localStorage: { getItem } });
+    try {
+      const html = renderToStaticMarkup(<DockerPanel snapshot={sample} overview={overview} />);
+      expect(getItem).toHaveBeenCalledWith("unraid-mobile.docker.runningCollapsed.v1");
+      expect(html).toContain("Running (1)");
+      expect(html).not.toMatch(/<details[^>]*open=""[^>]*><summary[^>]*>Running/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("preserves empty, no-running and unavailable states in overview", () => {
+    const empty = renderToStaticMarkup(
+      <DockerPanel snapshot={{ ...sample, containers: [], summary: { running: 0, stopped: 0, other: 0 } }} overview />,
+    );
+    expect(empty).toContain("No containers configured");
+    const noRunning = renderToStaticMarkup(
+      <DockerPanel snapshot={{ ...sample, containers: sample.containers.slice(1), summary: { running: 0, stopped: 1, other: 1 } }} overview />,
+    );
+    expect(noRunning).toContain("0 running");
+    expect(noRunning).toContain("No running containers");
+    for (const text of ["No containers configured", "Stopped", "Other", "Backup", "Database"])
+      expect(noRunning).not.toContain(text);
+    const unavailable = renderToStaticMarkup(
+      <DockerPanel snapshot={{ ...sample, available: false, reason: "Docker socket unavailable" }} overview />,
+    );
+    expect(unavailable).toContain("Docker socket unavailable");
+    expect(unavailable).not.toContain("Plex");
+    expect(unavailable).not.toContain("No containers configured");
+  });
+
+  it("wraps long container names and large metrics within narrow rows", () => {
+    const name = "verylongcontainername".repeat(8);
+    const html = renderToStaticMarkup(
+      <DockerPanel snapshot={{ ...sample, containers: [{ ...sample.containers[0], name, cpuUsage: 123456789.5 }] }} overview />,
+    );
+    expect(html).toContain(name);
+    expect(html).toMatch(/<h4 class="[^"]*break-words[^"]*">/);
+    expect(html).toMatch(/<div class="[^"]*grid-cols-2[^"]*break-words[^"]*">/);
   });
 
   it("shows missing telemetry as unknown and preserves actual unusual states", () => {
@@ -95,25 +151,40 @@ describe("DockerPanel", () => {
       <DockerPanel snapshot={sample} stale errorMessage="Docker proxy denied the request" />,
     );
     expect(html).toContain("Showing the last sample");
+    expect(html).toContain("Docker refresh failed.");
     expect(html).toContain("Docker proxy denied the request");
     expect(html).toContain("Plex");
-    expect(html).not.toContain("Sampled");
-    expect(html).not.toContain(sample.timestamp);
+    expect(html).toContain("opacity-60");
+    expect(html).toContain("Sampled");
+    expect(html).toContain(`<time dateTime="${sample.timestamp}">`);
     expect(html).toContain("Stats unavailable");
   });
 
-  it("preserves the unavailable sample reason alongside a new request error", () => {
+  it.each([false, true])("marks paused or offline data stale without inventing a refresh failure in overview=%s", (overview) => {
+    const html = renderToStaticMarkup(<DockerPanel snapshot={sample} stale overview={overview} />);
+    expect(html).toContain("Showing the last sample.");
+    expect(html).toContain("Plex");
+    expect(html).toContain("opacity-60");
+    expect(html).toContain("Sampled");
+    expect(html).toContain(`<time dateTime="${sample.timestamp}">`);
+    expect(html).not.toContain("refresh failed");
+  });
+
+  it.each([false, true])("preserves the unavailable sample reason alongside a new request error in overview=%s", (overview) => {
     const html = renderToStaticMarkup(
       <DockerPanel
         snapshot={{ ...sample, available: false, reason: "Socket permission denied" }}
         stale
+        overview={overview}
         errorMessage="Server connection refused"
       />,
     );
     expect(html).toContain("Socket permission denied");
     expect(html).toContain("Server connection refused");
-    expect(html).not.toContain("Sampled");
-    expect(html).not.toContain(sample.timestamp);
+    expect(html).toContain("Docker refresh failed.");
+    expect(html).toMatch(/<div class="opacity-60">[\s\S]*Socket permission denied/);
+    expect(html).toContain("Sampled");
+    expect(html).toContain(`<time dateTime="${sample.timestamp}">`);
     expect(html).not.toContain("Plex");
   });
 });

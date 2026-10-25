@@ -1,0 +1,608 @@
+{
+  "fixture": "Local Go production frontend handler with synthetic host/container/VM readers",
+  "checks": [
+    {
+      "name": "Authenticated direct /docker and stopped group",
+      "passed": true
+    },
+    {
+      "name": "Home overview limits and persistent trend",
+      "passed": true
+    },
+    {
+      "name": "Home 320x740",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          320,
+          740
+        ],
+        "scrollWidth": 320,
+        "active": "Home",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 675,
+        "navBottom": 740,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 1635,
+        "closed": [
+          {
+            "label": "Running (1)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Docker 320x740",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          320,
+          740
+        ],
+        "scrollWidth": 320,
+        "active": "Docker",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 675,
+        "navBottom": 740,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 868,
+        "closed": [
+          {
+            "label": "Running (1)",
+            "open": true
+          },
+          {
+            "label": "Stopped (1)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "VM 320x740",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          320,
+          740
+        ],
+        "scrollWidth": 320,
+        "active": "VM",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 675,
+        "navBottom": 740,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 711,
+        "closed": [
+          {
+            "label": "Stopped (1)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Storage 320x740",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          320,
+          740
+        ],
+        "scrollWidth": 320,
+        "active": "Storage",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 675,
+        "navBottom": 740,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 1309,
+        "closed": [
+          {
+            "label": "Disks (4)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Home 390x844",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          390,
+          844
+        ],
+        "scrollWidth": 390,
+        "active": "Home",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 779,
+        "navBottom": 844,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 1599,
+        "closed": [
+          {
+            "label": "Running (1)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Docker 390x844",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          390,
+          844
+        ],
+        "scrollWidth": 390,
+        "active": "Docker",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 779,
+        "navBottom": 844,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 832,
+        "closed": [
+          {
+            "label": "Running (1)",
+            "open": true
+          },
+          {
+            "label": "Stopped (1)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "VM 390x844",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          390,
+          844
+        ],
+        "scrollWidth": 390,
+        "active": "VM",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 779,
+        "navBottom": 844,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 675,
+        "closed": [
+          {
+            "label": "Stopped (1)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Storage 390x844",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          390,
+          844
+        ],
+        "scrollWidth": 390,
+        "active": "Storage",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 779,
+        "navBottom": 844,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 1257,
+        "closed": [
+          {
+            "label": "Disks (4)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Home 844x390",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          844,
+          390
+        ],
+        "scrollWidth": 844,
+        "active": "Home",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 325,
+        "navBottom": 390,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 1599,
+        "closed": [
+          {
+            "label": "Running (1)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Docker 844x390",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          844,
+          390
+        ],
+        "scrollWidth": 844,
+        "active": "Docker",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 325,
+        "navBottom": 390,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 587,
+        "closed": [
+          {
+            "label": "Running (1)",
+            "open": true
+          },
+          {
+            "label": "Stopped (1)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "VM 844x390",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          844,
+          390
+        ],
+        "scrollWidth": 844,
+        "active": "VM",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 325,
+        "navBottom": 390,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 470,
+        "closed": [
+          {
+            "label": "Stopped (1)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Storage 844x390",
+      "passed": true,
+      "layout": {
+        "viewport": [
+          844,
+          390
+        ],
+        "scrollWidth": 844,
+        "active": "Storage",
+        "activeBorder": "oklch(0.865 0.127 207.078)",
+        "navTop": 325,
+        "navBottom": 390,
+        "paddingBottom": 96,
+        "navHeight": 65,
+        "links": [
+          {
+            "text": "Home",
+            "height": 64,
+            "href": "/"
+          },
+          {
+            "text": "Docker",
+            "height": 64,
+            "href": "/docker"
+          },
+          {
+            "text": "VM",
+            "height": 64,
+            "href": "/vm"
+          },
+          {
+            "text": "Storage",
+            "height": 64,
+            "href": "/storage"
+          }
+        ],
+        "mainBottom": 826,
+        "closed": [
+          {
+            "label": "Disks (4)",
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "One System SSE across all page switches",
+      "passed": true
+    },
+    {
+      "name": "History back/forward and authenticated /storage refresh",
+      "passed": true
+    },
+    {
+      "name": "Emulated iPhone top/bottom safe area",
+      "passed": true,
+      "safeArea": {
+        "navPadding": "34px",
+        "shellPadding": "130px",
+        "topPadding": "71px"
+      }
+    },
+    {
+      "name": "Clear token returns to authentication",
+      "passed": true
+    },
+    {
+      "name": "No page JavaScript errors",
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    "/Users/bytedance/Work/feWorkspace/unraid-mobile/docs/validation/2026-10-25-primary-pages-local/home-320x740.png",
+    "/Users/bytedance/Work/feWorkspace/unraid-mobile/docs/validation/2026-10-25-primary-pages-local/home-390x844.png",
+    "/Users/bytedance/Work/feWorkspace/unraid-mobile/docs/validation/2026-10-25-primary-pages-local/home-844x390.png",
+    "/Users/bytedance/Work/feWorkspace/unraid-mobile/docs/validation/2026-10-25-primary-pages-local/storage-safe-area.png"
+  ]
+}

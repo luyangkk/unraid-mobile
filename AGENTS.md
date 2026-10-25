@@ -5,7 +5,7 @@
 ## 范围与现状
 
 - 单台 Unraid、受控局域网、只读 System / Storage / Docker / VM；VM 的 libvirt 读取尚未经过真实主机验证。所有写能力关闭，Operation Store 和 Docker 动作路由没有真实执行器。
-- Go 1.24 + `net/http`；React 19、TypeScript、Vite、Tailwind CSS v4、TanStack Query、shadcn/ui。当前为深色单页，支持可选 `APP_TOKEN` 认证；未接入页面路由、Bottom Sheet、Motion、Sonner、主题切换或可安装 PWA。
+- Go 1.24 + `net/http`；React 19、TypeScript、Vite、Tailwind CSS v4、TanStack Router / Query、shadcn/ui。当前为深色 SPA，支持 Home / Docker / VM / Storage 四个一级路由、固定底部导航和可选 `APP_TOKEN` 认证；未接入 Bottom Sheet、Motion、Sonner、主题切换或可安装 PWA。
 - [技术方案](docs/spec-20260921-mvp.md)和[产品计划](docs/plan-20260921-mvp.md)包含后续目标，当前能力以代码、测试和 [README](README.md) 为准。未经真实主机验证的能力不得启用或宣称可用。
 - 不扩展多主机、历史监控、通用 Shell、Docker 编辑、Share 或系统设置管理，不缓存离线业务数据。
 
@@ -14,7 +14,9 @@
 - `cmd/server` 装配依赖；`internal/api` 提供 HTTP/SSE；`internal/app` 定义模型、接口和用例；`internal/adapter` 实现宿主机读取。API 调用 app，Adapter 实现 app 接口；app 不导入 Adapter、Unraid 路径或外部客户端。
 - VM 每三秒后台采样，`GET /vms` 只读缓存；仅连接 `/var/run/libvirt/libvirt-sock-ro`，不回退到可写 socket 或 CLI。只解析 CPU 和内存分配字段，不导出 XML；无法可靠获取的 uptime 返回 `null`。`vmActions.start/stop/forceStop` 独立于读取能力，默认关闭。生产可选只读挂载 `/var/run/libvirt`，需真实主机验证；`VM_READ_ENABLED` 默认关闭，显式设为 `true` 才开始采集。
 - 前端业务面板放在 `web/src/features`，通用组件放在 `web/src/components/ui`，API、订阅和格式化工具放在 `web/src/lib`。复用现有组件和相对导入，不新增状态层或顺手升级依赖。
+- `web/src/app` 提供持久 App Shell 和路由，`routes` 提供页面，`components/app` 提供通用导航。QueryClient 全局共享，SessionGate 在路由外；System SSE 与 CPU 趋势由 Shell 持有，切页不重建订阅或清空缓存。
 - 一个生产容器、一个 Go 进程同时提供 API 与嵌入的静态资源。Dockerfile 将 Vite 产物复制到 `cmd/server/web` 后编译；不手改 `web/dist` 或嵌入产物，生产不运行 Vite。
+- Go 仅对合法且无扩展名的 GET/HEAD 客户端路径回退到嵌入首页；`/assets` 下缺失文件、目录和非法路径返回真实 404。API 在静态路径校验前分流，health 保持 204。
 - 生产以 `deploy/unraid/unraid-mobile.xml` 为准：`Privileged=false`，只读挂载 `/proc → /host/proc`、`/sys → /host/sys`、`/var/local/emhttp → /host/var/local/emhttp`，Docker 展示可选挂载 `/var/run/docker.sock → /var/run/docker.sock:ro`。只读 socket 挂载不限制 API 权限，应用只能发送固定读取请求。`compose.yaml` 的高权限和额外挂载用于开发/Spike，不能作为生产权限模板。
 - `cmd/host-spike`、`internal/spike` 不属于生产请求链路。高权限 Spike 仅在用户明确授权的 Unraid 测试主机运行；`testdata/host` 保持合成数据，不替换为开发机或 CI 的真实数据。
 
@@ -33,12 +35,13 @@
 ## 前端与交互
 
 - Query Cache 管理快照，React 本地 state 管理连接与趋势。先验证 capabilities，再挂载业务请求；token 只保存在 `sessionStorage` 的 `unraid-mobile.app-token`，REST 和 fetch SSE 共用认证 Header。任意当前会话 401 或退出均中止请求、关闭 SSE、清空受保护缓存；不可重试的 `ApiError` 不自动重试。
-- System 复用 `lib/stream.ts`，首次、重试和后台恢复均先取快照再开单一 fetch SSE；后台中止连接，卸载释放 reader 和 AbortController，避免旧结果回写。Storage / Docker 每两秒、VM 每三秒轮询，后台暂停。
+- System 复用 `lib/stream.ts`，首次、重试和后台恢复均先取快照再开单一 fetch SSE；后台中止连接，卸载释放 reader 和 AbortController，避免旧结果回写。Storage / Docker 每两秒、VM 每三秒轮询，仅使用数据的当前路由挂载查询，后台暂停，前台恢复先刷新。
 - 首次无数据显示加载占位；刷新/断线保留已有样本并注明旧数据和采样时间。区分连接失败、采集不可用和空配置，保留不可用模块及原因，不伪造健康分、进度或成功结果。
 - 格式化复用 `lib/system.ts`，统一 1024 进制单位和 `/s`；未知值显示 `—` 或 unavailable。CPU 趋势仅在浏览器内存保留最多 60 个去重样本，用 SVG 绘制，不作为历史监控。
 - 延续 Slate 深色表面、Cyan 强调、Emerald 活跃、Amber 提示；保持移动单列、`max-w-md`、320px 最小视口和上下安全区。复用系统字体、等宽数字及现有圆角，避免数值更新造成布局跳动。
 - System 指标集中在一个面板，Storage 按 Array/Parity/Pools/Disks 分组，磁盘与诊断用 `details/summary` 折叠。Button 保留至少 44px 高度、焦点和禁用反馈；图标按钮有可读标签，状态含义不能只靠颜色。
 - Docker 按 Running / Stopped / Other 分组，Stopped 默认折叠；Running 折叠偏好可存 localStorage，不保存业务快照。使用通用本地图标，未验证 metadata 前不猜测图标字段或路径。读展示不增加动作按钮。
+- Home 仅显示 Running 容器和 VM、Array/Parity 状态及 Pool 容量摘要；完整 Stopped / Other 与磁盘详情留在独立页面。离线、Query paused、刷新失败及恢复期间保留旧样本样式和采样时间，成功刷新后撤下旧样本标记。
 
 ## 操作与安全
 

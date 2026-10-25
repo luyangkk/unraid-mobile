@@ -7,6 +7,7 @@ import App from "./App";
 
 it("starts only capabilities until access is verified, then loads all panels with the same credential", async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   const token = "dashboard-session-fixture";
   sessionStorage.setItem("unraid-mobile.app-token", token);
   const requests: { url: string; init?: RequestInit }[] = [];
@@ -36,6 +37,8 @@ it("starts only capabilities until access is verified, then loads all panels wit
       <QueryClientProvider client={client}><App /></QueryClientProvider>,
     ));
     expect(requests.map(({ url }) => url)).toEqual(["/api/v1/capabilities"]);
+    expect(host.querySelector("nav")).toBeNull();
+    expect(host.textContent).not.toContain("System");
     await act(async () => finish(new Response(JSON.stringify({ docker: false, vm: false }))));
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
     expect(requests.map(({ url }) => url).sort()).toEqual([
@@ -53,5 +56,6 @@ it("starts only capabilities until access is verified, then loads all panels wit
     host.remove();
     sessionStorage.clear();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   }
 });

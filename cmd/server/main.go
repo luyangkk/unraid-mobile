@@ -74,14 +74,9 @@ func main() {
 		log.Fatalf("load embedded web assets: %v", err)
 	}
 
-	mux := http.NewServeMux()
-	mux.Handle("/api/", apiHandler)
-	mux.Handle("/healthz", apiHandler)
-	mux.Handle("/", http.FileServer(http.FS(staticFiles)))
-
 	server := &http.Server{
 		Addr:              address,
-		Handler:           routeAPIRequests(apiHandler, mux),
+		Handler:           newFrontendHandler(apiHandler, staticFiles),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	go func() {

@@ -14,6 +14,25 @@ domain state and assigned CPU/RAM through the libvirt read-only socket. Optional
 `APP_TOKEN` authentication protects every API request. VM/Docker control is not
 implemented; write capabilities remain disabled.
 
+The mobile shell has four browser History routes: **Home** (`/`), **Docker**
+(`/docker`), **VM** (`/vm`) and **Storage** (`/storage`). Home keeps the complete
+System panel and CPU trend, running Docker/VM overviews and Storage capacity
+summaries. The other pages show the full resource lists and diagnostics. Fixed
+bottom navigation includes safe-area spacing, keyboard focus and current-page
+labels. Unknown client routes offer a return to Home.
+
+One shared QueryClient and one shell-owned System SSE subscription survive page
+changes. Docker and Storage poll every two seconds, VM every three seconds;
+only the visible page's consumers poll. Home uses all three. Background pages
+pause and refresh snapshots on return. Cached samples remain visible with stale
+styling and sampling time during offline, paused, failed and pending recovery
+states. Business data stays in memory.
+
+The Go server serves the embedded frontend for valid extensionless GET/HEAD
+client routes, including direct visits and refreshes. Missing assets return
+real `404` responses; `/api` requests and `/healthz` retain their existing
+handlers. Static routes remain public when `APP_TOKEN` is enabled.
+
 ## Install the prebuilt image on Unraid
 
 Image: `ghcr.io/luyangkk/unraid-mobile:latest` (`linux/amd64`, including Intel N100).

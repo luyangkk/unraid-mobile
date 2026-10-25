@@ -50,7 +50,7 @@ export function AppShell() {
   const disconnected = connection === "offline" || connection === "paused";
   return (
     <PageDataContext.Provider value={{ system, ...activity }}>
-      <div className="mx-auto min-h-dvh max-w-md px-5 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))] text-slate-100">
+      <div className="mx-auto flex min-h-dvh max-w-md flex-col px-5 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))] text-slate-100">
         <AppHeader snapshot={system.snapshot} connection={connection} logout={logout} refresh={() => {
           system.refresh();
           void queryClient.refetchQueries({ type: "active", predicate: (query) => query.queryKey[0] !== "system" });
@@ -61,7 +61,8 @@ export function AppShell() {
             {system.error ? ` ${system.error}` : ""}
           </p>
         ) : null}
-        <motion.main ref={main} className="min-w-0" style={{ opacity, touchAction: "pan-y pinch-zoom" }}><Outlet /></motion.main>
+        {/* Include short-page whitespace and the content/nav gap in the swipe surface. */}
+        <motion.main ref={main} className="min-w-0 flex-1 pb-8" style={{ opacity, touchAction: "pan-y pinch-zoom" }}><Outlet /></motion.main>
         <BottomNavigation navigationRef={navigation} />
       </div>
     </PageDataContext.Provider>

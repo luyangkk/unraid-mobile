@@ -11,7 +11,7 @@ const browser = await chromium.launch({
 let diagnosticPage;
 
 // connect authenticates against a local synthetic production-handler fixture.
-async function connect(width = 390, reducedMotion = "no-preference") {
+async function connect(width = 390, reducedMotion = "no-preference", vmState) {
   const context = await browser.newContext({
     viewport: { width, height: 740 }, hasTouch: true, isMobile: true,
     reducedMotion, serviceWorkers: "block",
@@ -20,6 +20,13 @@ async function connect(width = 390, reducedMotion = "no-preference") {
   diagnosticPage = page;
   page.setDefaultTimeout(8000);
   page.on("pageerror", (error) => report.errors.push(error.message));
+  if (vmState) {
+    await page.route("**/api/v1/vms", (request) => request.fulfill({ json: {
+      timestamp: "2026-10-25T00:00:00Z", available: vmState !== "unavailable",
+      reason: vmState === "unavailable" ? "VM reading disabled" : undefined,
+      domains: [], summary: { running: 0, stopped: 0, other: 0 }, diagnostics: [],
+    } }));
+  }
   await page.goto(base);
   await page.getByLabel("APP_TOKEN", { exact: true }).fill("disposable-ui-test");
   await page.getByRole("button", { name: "Connect", exact: true }).click();
@@ -94,6 +101,33 @@ async function openSheet(page) {
 }
 
 try {
+  for (const vmState of ["unavailable", "empty"]) {
+    const blank = await connect(390, "reduce", vmState);
+    const { page, cdp } = blank;
+    await page.getByRole("navigation").getByRole("link", { name: "VM", exact: true }).tap();
+    await route(page, "/vm");
+    await page.getByText(vmState === "unavailable" ? "VM reading disabled" : "No virtual machines configured", { exact: true }).waitFor();
+    // Hit-test actual blank pixels; do not select an eligible point within main.
+    const gap = await page.evaluate(() => {
+      const card = document.querySelector("main > section").getBoundingClientRect();
+      const nav = document.querySelector("nav").getBoundingClientRect();
+      const start = { x: innerWidth / 2, y: (card.bottom + nav.top) / 2 };
+      return { ...start, height: nav.top - card.bottom,
+        target: document.elementFromPoint(start.x, start.y).tagName };
+    });
+    assert.ok(gap.height > 80, "Fixture must expose the short-page blank area");
+    await touch(cdp, { x: gap.x, y: gap.y }, -100);
+    await route(page, "/storage");
+    // At the end of a longer page, include the gap immediately above the nav.
+    await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+    const aboveNav = await page.evaluate(() => ({
+      x: innerWidth / 2, y: document.querySelector("nav").getBoundingClientRect().top - 16,
+    }));
+    await touch(cdp, aboveNav, 100);
+    await route(page, "/vm");
+    report.checks.push(`${vmState} VM blank-area left swipe and Storage bottom-gap right swipe navigate`);
+    await blank.context.close();
+  }
   const run = await connect();
   const { page, cdp } = run;
   const requests = [];

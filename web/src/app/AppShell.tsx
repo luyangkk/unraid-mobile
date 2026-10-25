@@ -31,13 +31,13 @@ export function AppShell() {
   const disconnected = connection === "offline" || connection === "paused";
   return (
     <PageDataContext.Provider value={{ system, ...activity }}>
-      <div className="mx-auto flex min-h-dvh max-w-md flex-col px-5 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))] text-slate-100">
+      <div className="mx-auto flex min-h-dvh max-w-md flex-col px-5 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))] text-foreground">
         <AppHeader snapshot={system.snapshot} connection={connection} logout={logout} refresh={() => {
           system.refresh();
           void queryClient.refetchQueries({ type: "active", predicate: (query) => query.queryKey[0] !== "system" });
         }} />
         {disconnected ? (
-          <p role="alert" className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/5 p-3 text-sm text-amber-200">
+          <p role="alert" className="mb-4 rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
             {connection === "paused" ? "Updates paused. Showing the last sample." : "Connection lost. Showing the last sample; reconnecting…"}
             {system.error ? ` ${system.error}` : ""}
           </p>

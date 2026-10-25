@@ -41,6 +41,7 @@ async function mountSheet(reduced = true) {
         description="Current read-only sample" returnFocusRef={trigger}
         footer={<button>Footer action</button>}>
         <p>Read only</p><button>Body action</button>
+        <label><input type="radio" name="appearance" /><span>Light</span></label>
       </AppSheet>
     </>;
   }
@@ -204,14 +205,15 @@ it("keeps the sheet open after a canceled right swipe", async () => {
   expect(document.querySelector('[role="dialog"]')).toBe(dialog);
 });
 
-it.each(["[data-sheet-body] button", "[data-sheet-handle]"])(
+it.each(["[data-sheet-body] button", "[data-sheet-body] label span", "[data-sheet-handle]"])(
   "does not dismiss a right swipe that starts on %s", async (selector) => {
-    await mountSheet(false);
+    const sheet = await mountSheet(false);
     const dialog = document.querySelector('[role="dialog"]');
     await pointer(document.querySelector(selector)!, "pointerdown", 0);
     await pointer(window, "pointermove", 0, 150);
     await pointer(window, "pointerup", 0, 150);
     await settleClose();
+    expect(sheet.closeCount).toBe(0);
     expect(document.querySelector('[role="dialog"]')).toBe(dialog);
   },
 );

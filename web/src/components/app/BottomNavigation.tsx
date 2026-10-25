@@ -7,13 +7,13 @@ import { primaryNavigation } from "./primaryNavigation";
 export function BottomNavigation({ navigationRef }: { navigationRef?: RefObject<HTMLElement | null> }) {
   return (
     <nav ref={navigationRef} aria-label="Primary navigation" style={{ touchAction: "pan-y pinch-zoom" }}
-      className="fixed inset-x-0 bottom-0 z-10 mx-auto grid max-w-md grid-cols-4 border-t border-slate-800 bg-slate-950 pb-[env(safe-area-inset-bottom)]">
+      className="fixed inset-x-0 bottom-0 z-10 mx-auto grid max-w-md grid-cols-4 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
       {primaryNavigation.map(({ to, label, icon: Icon }) => (
         <Link key={to} to={to} activeOptions={{ exact: true }} preload={false}
           style={{ transitionDuration: `${tabMotion.activeColor}s` }}
-          className="flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 border-t-2 px-1 text-xs transition-colors motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-cyan-300"
-          inactiveProps={{ className: "border-transparent text-slate-400" }}
-          activeProps={{ "aria-current": "page", className: "border-cyan-300 bg-slate-900 font-semibold text-cyan-300" }}>
+          className="flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 border-t-2 px-1 text-xs transition-colors motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-focus-ring"
+          inactiveProps={{ className: "border-transparent text-text-muted" }}
+          activeProps={{ "aria-current": "page", className: "border-brand-text bg-surface font-semibold text-brand-text" }}>
           <Icon className="size-5" aria-hidden="true" />
           <span>{label}</span>
         </Link>

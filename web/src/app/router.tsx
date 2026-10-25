@@ -24,7 +24,7 @@ const routeTree = rootRoute.addChildren([homeRoute, dockerRoute, vmRoute, storag
 
 // PendingPage fills the Outlet while a lazy route chunk is being loaded.
 function PendingPage() {
-  return <p role="status" className="py-6 text-sm text-slate-400">Loading page…</p>;
+  return <p role="status" className="py-6 text-sm text-text-muted">Loading page…</p>;
 }
 
 // createAppRouter uses browser History while leaving server snapshots in Query Cache.

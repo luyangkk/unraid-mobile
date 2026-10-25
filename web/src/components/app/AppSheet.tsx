@@ -85,7 +85,7 @@ export function AppSheet({
           {open ? (
             <SheetOverlay forceMount asChild key="overlay">
               <motion.div data-sheet-overlay
-                className="fixed inset-0 z-50 bg-black/60"
+                className="fixed inset-0 z-50 bg-overlay/60"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 transition={reduced ? sheetMotion.reduced : sheetMotion.fade} />
             </SheetOverlay>
@@ -108,7 +108,7 @@ export function AppSheet({
                 if (target?.isConnected) target.focus({ preventScroll: true });
               }}>
               <motion.section
-                className="flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border border-slate-700 bg-slate-900 text-slate-100 shadow-xl outline-none"
+                className="flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border border-border bg-surface text-foreground shadow-xl outline-none"
                   style={{
                     y: reduced ? 0 : dragY, paddingBottom: "env(safe-area-inset-bottom)",
                     touchAction: reduced ? "auto" : "pan-y pinch-zoom",
@@ -120,7 +120,7 @@ export function AppSheet({
                     swipeStarted.current = null;
                     if (gestureEnabled.current && event.isPrimary !== false && event.button === 0
                       && event.target instanceof Element
-                      && !event.target.closest("[data-sheet-handle], button, a, input, textarea, select, [contenteditable]")) {
+                      && !event.target.closest("[data-sheet-handle], button, a, input, label, textarea, select, [contenteditable]")) {
                       swipeStarted.current = {
                         timeStamp: event.timeStamp, pointerId: event.pointerId,
                         pointerType: event.pointerType, x: event.clientX, y: event.clientY,
@@ -147,16 +147,16 @@ export function AppSheet({
                         controls.start(event);
                       }
                     }}>
-                    <span className="h-1 w-10 rounded-full bg-slate-600" />
+                    <span className="h-1 w-10 rounded-full bg-control-border" />
                   </div>
                   <header className="flex shrink-0 items-start gap-3 px-5 pb-4">
                     <div className="min-w-0 flex-1">
                       <SheetTitle className="break-words text-lg font-semibold">{title}</SheetTitle>
-                      <SheetDescription className="mt-1 break-words text-sm text-slate-400">{description}</SheetDescription>
+                      <SheetDescription className="mt-1 break-words text-sm text-text-muted">{description}</SheetDescription>
                     </div>
                     <SheetClose asChild>
                       <button type="button" aria-label="Close sheet"
-                        className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-cyan-300">
+                        className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-control-border bg-surface-muted hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
                         <X aria-hidden="true" size={20} />
                       </button>
                     </SheetClose>
@@ -165,7 +165,7 @@ export function AppSheet({
                     className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-5">
                     {children}
                   </div>
-                  {footer ? <footer className="shrink-0 border-t border-slate-800 px-5 py-4">{footer}</footer> : null}
+                  {footer ? <footer className="shrink-0 border-t border-border px-5 py-4">{footer}</footer> : null}
               </motion.section>
             </SheetContent>
             </motion.div>

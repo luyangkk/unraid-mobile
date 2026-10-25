@@ -12,7 +12,7 @@ for (const [key, value] of Object.entries({
   name: "Unraid Mobile", short_name: "Unraid",
   description: "Mobile console for a single Unraid server",
   start_url: "/", scope: "/", display: "standalone", orientation: "portrait",
-  theme_color: "#020617", background_color: "#020617",
+  theme_color: "#1D1B1B", background_color: "#1D1B1B",
 })) assert.equal(manifest[key], value, key);
 assert.deepEqual(manifest.icons.map(({ sizes, type, purpose }) => ({ sizes, type, purpose })), [
   { sizes: "192x192", type: "image/png", purpose: "any" },
@@ -66,6 +66,8 @@ const html = await readFile(`${dist}index.html`, "utf8");
 assert.match(html, /rel="manifest" href="\/manifest.webmanifest"/);
 assert.match(html, /viewport-fit=cover/);
 assert.match(html, /apple-mobile-web-app-capable/);
+assert.match(html, /name="theme-color" content="#1D1B1B"/);
+assert.match(html, /<script data-theme-bootstrap>/);
 
 const handlers = new Map();
 const stores = new Map([["unraid-mobile-static-old", new Map()], ["unrelated-cache", new Map()]]);

@@ -51,9 +51,13 @@ export async function settle() {
 }
 
 // mountApp exercises the real router, authentication and fetch stream boundaries.
-export async function mountApp(path = "/", cached = true, reduced: boolean | MediaQueryList = true) {
+export async function mountApp(
+  path = "/", cached = true, reduced: boolean | MediaQueryList = true,
+  colorScheme?: MediaQueryList,
+) {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  vi.stubGlobal("matchMedia", () => typeof reduced === "object" ? reduced : ({
+  vi.stubGlobal("matchMedia", (query: string) => query.includes("prefers-color-scheme") && colorScheme
+    ? colorScheme : typeof reduced === "object" ? reduced : ({
     matches: reduced, addEventListener() {}, removeEventListener() {},
   }));
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});

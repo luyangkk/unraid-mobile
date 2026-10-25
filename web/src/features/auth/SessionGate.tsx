@@ -87,19 +87,19 @@ export function SessionGate({ children }: {
     return children({ logout: () => endSession(null), hasToken: getAppToken() !== null });
   }
   return (
-    <main className="mx-auto min-h-dvh max-w-md px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))] text-slate-100">
-      <p className="mb-7 text-sm text-slate-400">Unraid Mobile</p>
+    <main className="mx-auto min-h-dvh max-w-md px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))] text-foreground">
+      <p className="mb-7 text-sm text-text-muted">Unraid Mobile</p>
       {state === "required" ? (
         <TokenForm busy={busy} error={error} onSubmit={(token) => {
           setAppToken(token);
           void validate(true);
         }} />
       ) : (
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <p role="status" className="text-sm text-slate-400">
+        <section className="rounded-2xl border border-border bg-surface p-5">
+          <p role="status" className="text-sm text-text-muted">
             {busy ? "Checking server access…" : "Server access could not be verified."}
           </p>
-          {error ? <p role="alert" className="mt-3 text-sm text-amber-300">{error}</p> : null}
+          {error ? <p role="alert" className="mt-3 text-sm text-danger">{error}</p> : null}
           {!busy ? <Button className="mt-4" onClick={() => {
             restoreAppToken();
             void validate(false);

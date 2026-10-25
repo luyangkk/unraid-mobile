@@ -11,13 +11,13 @@ export function PWAUpdateBanner({ registration = pwaRegistration }: { registrati
   if (status !== "updateAvailable") return null;
   return (
     <aside className="mx-auto max-w-md px-5 pt-[calc(1rem+env(safe-area-inset-top))]">
-      <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-cyan-400/30 bg-slate-900 p-3 text-slate-100">
-        <p className="min-w-0 flex-1 text-sm">New version available.</p>
+      <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-3 text-foreground">
+        <p className="min-w-0 flex-1 text-sm text-info">New version available.</p>
         <Button aria-label="Refresh to update" disabled={updating} onClick={() => {
           setUpdating(true);
           registration.update();
         }}>{updating ? "Updating…" : "Refresh"}</Button>
-        <Button variant="secondary" aria-label="Dismiss update" disabled={updating} onClick={registration.dismiss} className="px-3">
+        <Button variant="secondary" aria-label="Dismiss update" disabled={updating} onClick={registration.dismiss} className="min-w-11 px-3">
           <X aria-hidden="true" className="size-4" />
         </Button>
       </div>

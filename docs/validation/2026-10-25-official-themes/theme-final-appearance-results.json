@@ -1,0 +1,188 @@
+{
+  "startedAt": "2026-10-25T10:44:43.314Z",
+  "baseURL": "http://127.0.0.1:18189/",
+  "versions": {
+    "chrome": "155.0.8059.86",
+    "node": "v24.2.0",
+    "playwright": "1.64.1"
+  },
+  "checks": [
+    {
+      "id": "appearance",
+      "title": "Both palettes preserve pages, Portal focus and 320px header controls",
+      "status": "passed",
+      "assertions": [
+        {
+          "name": "dark / resolves official page colors without overflow",
+          "passed": true
+        },
+        {
+          "name": "dark /docker resolves official page colors without overflow",
+          "passed": true
+        },
+        {
+          "name": "dark /vm resolves official page colors without overflow",
+          "passed": true
+        },
+        {
+          "name": "dark /storage resolves official page colors without overflow",
+          "passed": true
+        },
+        {
+          "name": "dark palette replacement does not interpolate foreground and background",
+          "passed": true
+        },
+        {
+          "name": "dark selection keeps the Portal and focused native radio",
+          "passed": true
+        },
+        {
+          "name": "dark radio group accepts native keyboard selection",
+          "passed": true
+        },
+        {
+          "name": "dark authenticated header has three 44px controls with room for identity",
+          "passed": true
+        },
+        {
+          "name": "dark landscape Sheet scrolls within the viewport",
+          "passed": true
+        },
+        {
+          "name": "dark disk detail Portal uses the active surface and retains status text",
+          "passed": true
+        },
+        {
+          "name": "light / resolves official page colors without overflow",
+          "passed": true
+        },
+        {
+          "name": "light /docker resolves official page colors without overflow",
+          "passed": true
+        },
+        {
+          "name": "light /vm resolves official page colors without overflow",
+          "passed": true
+        },
+        {
+          "name": "light /storage resolves official page colors without overflow",
+          "passed": true
+        },
+        {
+          "name": "light palette replacement does not interpolate foreground and background",
+          "passed": true
+        },
+        {
+          "name": "light selection keeps the Portal and focused native radio",
+          "passed": true
+        },
+        {
+          "name": "light radio group accepts native keyboard selection",
+          "passed": true
+        },
+        {
+          "name": "light authenticated header has three 44px controls with room for identity",
+          "passed": true
+        },
+        {
+          "name": "light landscape Sheet scrolls within the viewport",
+          "passed": true
+        },
+        {
+          "name": "light disk detail Portal uses the active surface and retains status text",
+          "passed": true
+        }
+      ],
+      "screenshots": [
+        "/tmp/unraid-tab-transition-browser/appearance-dark-home-page.png",
+        "/tmp/unraid-tab-transition-browser/appearance-dark-docker-page.png",
+        "/tmp/unraid-tab-transition-browser/appearance-dark-vm-page.png",
+        "/tmp/unraid-tab-transition-browser/appearance-dark-storage-page.png",
+        "/tmp/unraid-tab-transition-browser/appearance-dark-appearance-sheet.png",
+        "/tmp/unraid-tab-transition-browser/appearance-dark-320-header.png",
+        "/tmp/unraid-tab-transition-browser/appearance-dark-disk-detail.png",
+        "/tmp/unraid-tab-transition-browser/appearance-light-home-page.png",
+        "/tmp/unraid-tab-transition-browser/appearance-light-docker-page.png",
+        "/tmp/unraid-tab-transition-browser/appearance-light-vm-page.png",
+        "/tmp/unraid-tab-transition-browser/appearance-light-storage-page.png",
+        "/tmp/unraid-tab-transition-browser/appearance-light-appearance-sheet.png",
+        "/tmp/unraid-tab-transition-browser/appearance-light-320-header.png",
+        "/tmp/unraid-tab-transition-browser/appearance-light-disk-detail.png"
+      ],
+      "startedAt": "2026-10-25T10:44:43.753Z",
+      "finishedAt": "2026-10-25T10:44:53.197Z"
+    },
+    {
+      "id": "appearance-session",
+      "title": "Authentication and offline cold startup use both saved palettes",
+      "status": "passed",
+      "assertions": [
+        {
+          "name": "dark auth paints before protected consumers mount",
+          "passed": true
+        },
+        {
+          "name": "dark offline paints before protected consumers mount",
+          "passed": true
+        },
+        {
+          "name": "light auth paints before protected consumers mount",
+          "passed": true
+        },
+        {
+          "name": "light offline paints before protected consumers mount",
+          "passed": true
+        }
+      ],
+      "screenshots": [
+        "/tmp/unraid-tab-transition-browser/appearance-session-dark-auth.png",
+        "/tmp/unraid-tab-transition-browser/appearance-session-dark-offline.png",
+        "/tmp/unraid-tab-transition-browser/appearance-session-light-auth.png",
+        "/tmp/unraid-tab-transition-browser/appearance-session-light-offline.png"
+      ],
+      "startedAt": "2026-10-25T10:44:53.200Z",
+      "finishedAt": "2026-10-25T10:44:54.006Z"
+    },
+    {
+      "id": "appearance-transition",
+      "title": "System palette changes cancel a native snapshot and retain committed navigation",
+      "status": "passed",
+      "assertions": [
+        {
+          "name": "OS theme changes remove the old screenshot and preserve live transports",
+          "passed": true
+        },
+        {
+          "name": "Palette changes retain the single stream",
+          "passed": true
+        },
+        {
+          "name": "URL/content/aria-current agree",
+          "passed": true
+        }
+      ],
+      "screenshots": [
+        "/tmp/unraid-tab-transition-browser/appearance-transition-live-light-after-native-cancel.png"
+      ],
+      "startedAt": "2026-10-25T10:44:54.009Z",
+      "finishedAt": "2026-10-25T10:44:54.603Z"
+    }
+  ],
+  "errors": [],
+  "limitations": [
+    "Desktop Chrome automation does not validate iPhone Safari, installed PWA, or a real Unraid host.",
+    "Playwright fulfill cannot stream SSE. Only /events is redirected by route.continue to this script's temporary synthetic streaming server; all REST fixtures are returned directly by route.fulfill.",
+    "Snapshot content is checked by separate old/new screenshots plus before/after semantic DOM evidence; screenshot pixel differences alone are not OCR.",
+    "Real hidden/visible lifecycle remains unverified: headless and headed local Chrome, tab activation, window minimization, Page.setWebLifecycleState, and disabled CDP focus emulation all retained visible. No fabricated visibility events are used. See visibility-probe.json.",
+    "No npm ci, application unit tests, build, Go tests, or image checks are performed by this browser-only script."
+  ],
+  "build": {
+    "indexHash": "468cdba7a24e67d5619a8c51fa192de79cf8332416478a68dc554036191d73fe"
+  },
+  "finishedAt": "2026-10-25T10:44:54.728Z",
+  "summary": {
+    "passed": 3,
+    "failed": 0,
+    "assertions": 27
+  }
+}

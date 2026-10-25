@@ -23,7 +23,7 @@ export function DiskDetailSheet({
     <AppSheet open={open} onOpenChange={onOpenChange} title={selectedName || "Disk details"}
       description="Disk details · Current read-only Storage sample" returnFocusRef={returnFocusRef}>
       {stale ? (
-        <p role="status" className="mb-3 break-words text-sm text-amber-200">
+        <p role="status" className="mb-3 break-words text-sm text-warning">
           {errorMessage
             ? `Storage refresh failed. Showing the last sample. ${errorMessage}`
             : "Showing the last sample."}
@@ -32,11 +32,11 @@ export function DiskDetailSheet({
       <div className={stale ? "opacity-60" : ""}>
         {disk ? (
           <>
-            <p className="mb-3 text-sm text-slate-400">Temp {diskTemperature(disk)}</p>
-            <dl className="divide-y divide-slate-800 text-sm tabular-nums">
+            <p className="mb-3 text-sm text-text-muted">Temp {diskTemperature(disk)}</p>
+            <dl className="divide-y divide-border text-sm tabular-nums">
               <Detail label="Role" value={disk.role || "—"} />
               <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-3 py-3">
-                <dt className="text-slate-400">Power</dt>
+                <dt className="text-text-muted">Power</dt>
                 <dd className={`min-w-0 break-words text-right ${powerStateClass(disk.powerState)}`}>{powerStateLabel(disk.powerState)}</dd>
               </div>
               <Detail label="Used" value={disk.capacity ? formatBytes(disk.capacity.usedBytes) : "—"} />
@@ -50,12 +50,12 @@ export function DiskDetailSheet({
             </dl>
           </>
         ) : (
-          <p role="status" className="break-words text-sm text-amber-200">
+          <p role="status" className="break-words text-sm text-warning">
             {unavailableReason || "磁盘已不在最新快照中"}
           </p>
         )}
       </div>
-      <p className="mt-4 break-words text-xs text-slate-400">
+      <p className="mt-4 break-words text-xs text-text-muted">
         Sampled <time dateTime={timestamp}>{timestamp}</time>
       </p>
     </AppSheet>
@@ -66,7 +66,7 @@ export function DiskDetailSheet({
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-3 py-3">
-      <dt className="text-slate-400">{label}</dt>
+      <dt className="text-text-muted">{label}</dt>
       <dd className="min-w-0 break-words text-right">{value}</dd>
     </div>
   );

@@ -7,9 +7,9 @@ export function powerStateLabel(state: StorageDisk["powerState"]) {
   return state === "active" ? "Active" : state === "standby" ? "Standby" : "Unknown";
 }
 
-// powerStateClass supplements the readable label with the established palette.
+// powerStateClass supplements readable labels with theme-aware status roles.
 export function powerStateClass(state: StorageDisk["powerState"]) {
-  return state === "active" ? "text-emerald-300" : state === "standby" ? "text-slate-400" : "text-amber-200";
+  return state === "active" ? "text-success" : state === "standby" ? "text-text-muted" : "text-warning";
 }
 
 // diskTemperature never treats a standby disk as having a live temperature.

@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRe
 import { primaryNavigation } from "../components/app/primaryNavigation";
 import { subscribeAuthChange } from "../lib/auth";
 import { tabMotion, useReducedMotion } from "../lib/motion";
+import { subscribeThemeChange } from "../lib/theme";
 
 export type TabPath = (typeof primaryNavigation)[number]["to"];
 export type TabTransitionRequest = { from: TabPath; to: TabPath };
@@ -343,6 +344,7 @@ export function useTabTransition(content: RefObject<HTMLElement | null>, nav: Re
     });
     observer.observe(document.body, { subtree: true, childList: true });
     const auth = subscribeAuthChange(() => { sessionValid = false; cancel(); });
+    const theme = subscribeThemeChange(() => cancel(true));
     const navigation = nav.current;
     navigation?.addEventListener("click", click, true);
     window.addEventListener("resize", resized);
@@ -356,7 +358,7 @@ export function useTabTransition(content: RefObject<HTMLElement | null>, nav: Re
       cancel();
       alive = false;
       engine.current = null;
-      before(); rendered(); auth(); observer.disconnect();
+      before(); rendered(); auth(); theme(); observer.disconnect();
       navigation?.removeEventListener("click", click, true);
       window.removeEventListener("resize", resized);
       window.visualViewport?.removeEventListener("resize", resized);

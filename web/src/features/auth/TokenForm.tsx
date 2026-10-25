@@ -9,9 +9,9 @@ export function TokenForm({ busy, error, onSubmit }: {
 }) {
   const [token, setToken] = useState("");
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+    <section className="rounded-2xl border border-border bg-surface p-5">
       <h1 className="text-xl font-semibold">API authentication</h1>
-      <p className="mt-2 text-sm text-slate-400">
+      <p className="mt-2 text-sm text-text-muted">
         Enter the APP_TOKEN configured on your server.
       </p>
       <form className="mt-5 grid gap-3" onSubmit={(event) => {
@@ -35,14 +35,14 @@ export function TokenForm({ busy, error, onSubmit }: {
           disabled={busy}
           aria-invalid={!!error}
           aria-describedby={error ? "token-error token-guidance" : "token-guidance"}
-          className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:opacity-50"
+          className="min-h-11 w-full rounded-xl border border-control-border bg-background px-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:bg-surface-muted disabled:text-text-muted"
         />
-        {error ? <p id="token-error" role="alert" className="text-sm text-amber-300">{error}</p> : null}
+        {error ? <p id="token-error" role="alert" className="text-sm text-danger">{error}</p> : null}
         <Button type="submit" disabled={busy || token === ""}>
           {busy ? "Verifying…" : "Connect"}
         </Button>
       </form>
-      <p id="token-guidance" className="mt-5 text-xs leading-relaxed text-slate-400">
+      <p id="token-guidance" className="mt-5 text-xs leading-relaxed text-text-muted">
         Use on a controlled LAN. Bearer tokens do not encrypt traffic.
         For other networks, use HTTPS, Tailscale or WireGuard.
         The token stays in this tab’s sessionStorage until you clear it or close the tab.

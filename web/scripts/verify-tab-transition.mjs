@@ -189,9 +189,12 @@ function instrument({ nativeMissing, freeze }) {
 
 // createPage blocks external traffic and routes REST into mutable synthetic snapshots.
 async function createPage({ path = "/", nativeMissing = false, freeze = false, delayed = false,
-  longStorage = false, viewport = { width: 390, height: 844 } } = {}) {
+  longStorage = false, viewport = { width: 390, height: 844 }, theme = process.env.CHECK_THEME || "dark",
+  scenario = "ready" } = {}) {
+  assert.ok(["dark", "light", "system"].includes(theme), "CHECK_THEME must be dark, light or system");
   const context = await browser.newContext({ viewport, hasTouch: true, isMobile: true, deviceScaleFactor: 1,
     serviceWorkers: "block", reducedMotion: "no-preference" });
+  await context.addInitScript((preference) => localStorage.setItem("unraid-mobile.theme", preference), theme);
   const page = await context.newPage();
   page.setDefaultTimeout(5000);
   const transport = { id: String(++streamId), system: structuredClone(samples.systemSample),
@@ -223,6 +226,12 @@ async function createPage({ path = "/", nativeMissing = false, freeze = false, d
     const url = new URL(route.request().url());
     requests.push({ path: url.pathname, at: Date.now() });
     if (url.origin !== base.origin) return route.abort();
+    if (url.pathname.startsWith("/api/") && scenario === "offline") return route.abort();
+    if (url.pathname.startsWith("/api/") && scenario === "auth") {
+      return route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({
+        error: { code: "UNAUTHORIZED", message: "Authentication required", retryable: false },
+      }) });
+    }
     if (url.pathname === "/api/v1/events") {
       return route.continue({ url: `${streamOrigin}/events?id=${transport.id}` });
     }
@@ -237,7 +246,9 @@ async function createPage({ path = "/", nativeMissing = false, freeze = false, d
   await page.addInitScript(instrument, { nativeMissing, freeze });
   environment.cdp = await context.newCDPSession(page);
   await page.goto(new URL(path, base).href, { waitUntil: "domcontentloaded" });
-  await ready(environment, path);
+  if (scenario === "ready") await ready(environment, path);
+  else if (scenario === "auth") await page.getByRole("heading", { name: "API authentication" }).waitFor();
+  else await page.getByRole("button", { name: "Retry connection", exact: true }).waitFor();
   return environment;
 }
 
@@ -397,7 +408,11 @@ async function paintedOpacity(environment, firstPath, finalPath, top) {
       averages.push(rgb.map((value) => value / (pixels.length / 4)));
       bitmap.close();
     }
-    const background = [2, 6, 23];
+    const canvas = new OffscreenCanvas(1, 1);
+    const context = canvas.getContext("2d");
+    context.fillStyle = getComputedStyle(document.body).backgroundColor;
+    context.fillRect(0, 0, 1, 1);
+    const background = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
     const vector = averages[1].map((value, index) => value - background[index]);
     const opacity = vector.reduce((sum, value, index) =>
       sum + value * (averages[0][index] - background[index]), 0)
@@ -477,7 +492,7 @@ async function persist() {
     `- Run: ${results.startedAt}`, `- URL: ${base.href}`, `- Chrome: ${results.versions.chrome ?? "not launched"}`,
     `- Node: ${process.version}`, `- Playwright module: ${modulePath}`,
     `- Summary: ${results.summary.passed} passed, ${results.summary.failed} failed, ${results.summary.assertions} assertions`,
-    "- Production files are served by Vite preview; no business source, unit tests, or docs are edited.", "",
+    "- The configured local server serves production files; API fixtures and faults are synthetic.", "",
     "## Checks", "", "| Check | Result | Evidence |", "| --- | --- | --- |",
     ...results.checks.map((check) => `| ${check.id}: ${check.title} | ${check.status} | ${check.id}.json |`),
     "", "## Failures", "",
@@ -492,7 +507,7 @@ async function persist() {
     "CHECK_BASE_URL=http://127.0.0.1:18183 node web/scripts/verify-tab-transition.mjs",
     "# Without PLAYWRIGHT_MODULE, the script resolves the existing local playwright package.",
     "# From web/: node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 18183 --strictPort",
-    "# CHECK_BASE_URL, PLAYWRIGHT_MODULE, CHROME_EXECUTABLE, CHECK_REPORT_PATH are supported.",
+    "# CHECK_BASE_URL, PLAYWRIGHT_MODULE, CHROME_EXECUTABLE, CHECK_REPORT_PATH, CHECK_THEME are supported.",
     "# CHECK_REPORT_PATH must remain under /tmp/unraid-tab-transition-browser/.",
     "```", "",
   ];
@@ -506,6 +521,222 @@ try {
   results.versions.node = process.version;
   results.versions.playwright = JSON.parse(await readFile(resolve(dirname(modulePath), "package.json"), "utf8")).version;
   results.build = { indexHash: createHash("sha256").update(await readFile(`${web}dist/index.html`)).digest("hex") };
+
+  await runCheck("appearance", "Both palettes preserve pages, Portal focus and 320px header controls", async () => {
+    for (const theme of ["dark", "light"]) {
+      const environment = await createPage({ theme, viewport: { width: 320, height: 740 } });
+      const { page } = environment;
+      for (const path of ["/", "/docker", "/vm", "/storage"]) {
+        await page.locator(`nav a[href="${path}"]`).click();
+        await ready(environment, path);
+        const rendered = await page.evaluate(() => ({
+          theme: document.documentElement.dataset.theme,
+          background: getComputedStyle(document.body).backgroundColor,
+          foreground: getComputedStyle(document.querySelector("main")).color,
+          chrome: document.querySelector('meta[name="theme-color"]').content,
+          overflow: document.documentElement.scrollWidth > innerWidth,
+        }));
+        await verify(`${theme} ${path} resolves official page colors without overflow`, rendered,
+          (data) => data.theme === theme && !data.overflow
+            && data.background === (theme === "dark" ? "rgb(29, 27, 27)" : "rgb(242, 242, 242)")
+            && data.foreground === (theme === "dark" ? "rgb(242, 242, 242)" : "rgb(29, 27, 27)")
+            && data.chrome === (theme === "dark" ? "#1D1B1B" : "#F2F2F2"));
+        await screenshot(environment, `${theme}-${path.slice(1) || "home"}-page`);
+      }
+      await page.getByRole("button", { name: "Appearance", exact: true }).click();
+      await page.waitForFunction(() => {
+        const rect = document.querySelector('[role="dialog"]')?.getBoundingClientRect();
+        return rect && rect.bottom <= innerHeight + 1;
+      });
+      await screenshot(environment, `${theme}-appearance-sheet`);
+      const next = theme === "dark" ? "light" : "dark";
+      const dialog = await page.getByRole("dialog", { name: "Appearance", exact: true }).elementHandle();
+      await page.locator(`input[name="appearance"][value="${next}"]`).check();
+      await verify(`${theme} palette replacement does not interpolate foreground and background`,
+        await page.evaluate(() => ({
+          colorTransitions: document.getAnimations().filter((animation) =>
+            animation instanceof CSSTransition && /color|fill|stroke|box-shadow/.test(animation.transitionProperty)
+            && animation.playState !== "finished").map((animation) => animation.transitionProperty),
+          navigation: getComputedStyle(document.querySelector('nav a[aria-current="page"]')).color,
+        })), (data) => data.colorTransitions.length === 0
+          && data.navigation === (next === "dark" ? "rgb(255, 140, 47)" : "rgb(184, 61, 20)"));
+      await verify(`${theme} selection keeps the Portal and focused native radio`, await page.evaluate((original) => ({
+        same: original === document.querySelector('[role="dialog"]'),
+        theme: document.documentElement.dataset.theme,
+        focused: document.activeElement?.getAttribute("value"),
+      }), dialog), (data) => data.same && data.theme === next && data.focused === next);
+      await page.keyboard.press("ArrowDown");
+      await verify(`${theme} radio group accepts native keyboard selection`, await page.evaluate(() => ({
+        value: document.activeElement?.getAttribute("value"),
+        checked: document.activeElement?.checked,
+      })), (data) => data.checked && data.value === (next === "dark" ? "light" : "system"));
+      await page.getByRole("button", { name: "Close sheet" }).click();
+      await page.getByRole("dialog").waitFor({ state: "detached" });
+      await page.evaluate(() => sessionStorage.setItem("unraid-mobile.app-token", "synthetic-theme-header"));
+      await page.reload();
+      await ready(environment, "/storage");
+      await verify(`${theme} authenticated header has three 44px controls with room for identity`,
+        await page.evaluate(() => ({
+          buttons: [...document.querySelectorAll("header button")].map((node) => {
+            const rect = node.getBoundingClientRect();
+            return { width: rect.width, height: rect.height, left: rect.left, right: rect.right };
+          }),
+          identity: document.querySelector("h1").getBoundingClientRect().width,
+          overflow: document.documentElement.scrollWidth > innerWidth,
+        })), (data) => data.buttons.length === 3 && data.identity > 100 && !data.overflow
+          && data.buttons.every((button) => button.width >= 44 && button.height >= 44 && button.left >= 0 && button.right <= 320));
+      await screenshot(environment, `${theme}-320-header`);
+      await page.setViewportSize({ width: 844, height: 390 });
+      await page.getByRole("button", { name: "Appearance", exact: true }).click();
+      await page.waitForFunction(() => {
+        const rect = document.querySelector('[role="dialog"]')?.getBoundingClientRect();
+        return rect && rect.top >= 0 && rect.bottom <= innerHeight + 1;
+      });
+      await verify(`${theme} landscape Sheet scrolls within the viewport`,
+        await page.evaluate(() => {
+          const dialog = document.querySelector('[role="dialog"]').getBoundingClientRect();
+          const body = document.querySelector("[data-sheet-body]");
+          return { top: dialog.top, bottom: dialog.bottom, height: innerHeight,
+            scrollable: getComputedStyle(body).overflowY === "auto",
+            overflow: document.documentElement.scrollWidth > innerWidth };
+        }), (data) => data.top >= -1 && data.bottom <= data.height + 1 && data.scrollable && !data.overflow);
+      await page.getByRole("button", { name: "Close sheet" }).click();
+      await page.getByRole("dialog").waitFor({ state: "detached" });
+      await page.setViewportSize({ width: 320, height: 740 });
+      await page.locator("summary").filter({ hasText: "Disks" }).first().click();
+      await page.getByRole("button", { name: /disk1/i }).click();
+      await verify(`${theme} disk detail Portal uses the active surface and retains status text`,
+        await page.getByRole("dialog").evaluate((node) => ({
+          background: getComputedStyle(node).backgroundColor,
+          text: node.textContent,
+        })), (data) => data.background === (theme === "dark" ? "rgb(38, 38, 38)" : "rgb(255, 255, 255)")
+          && data.text.includes("Active") && data.text.includes("35"));
+      await page.waitForFunction(() => {
+        const rect = document.querySelector('[role="dialog"]')?.getBoundingClientRect();
+        return rect && rect.bottom <= innerHeight + 1;
+      });
+      await screenshot(environment, `${theme}-disk-detail`);
+    }
+  });
+
+  await runCheck("appearance-session", "Authentication and offline cold startup use both saved palettes", async () => {
+    for (const theme of ["dark", "light"]) {
+      for (const scenario of ["auth", "offline"]) {
+        const environment = await createPage({ theme, scenario, viewport: { width: 320, height: 740 } });
+        const state = await environment.page.evaluate(() => ({
+          theme: document.documentElement.dataset.theme,
+          background: getComputedStyle(document.body).backgroundColor,
+          surface: getComputedStyle(document.querySelector("main section")).backgroundColor,
+          chrome: document.querySelector('meta[name="theme-color"]').content,
+          routerMounted: !!document.querySelector("nav"),
+          overflow: document.documentElement.scrollWidth > innerWidth,
+        }));
+        await verify(`${theme} ${scenario} paints before protected consumers mount`, {
+          ...state, business: environment.requests.filter(({ path }) => path.startsWith("/api/")).map(({ path }) => path),
+        }, (data) => data.theme === theme && !data.routerMounted && !data.overflow
+          && data.background === (theme === "dark" ? "rgb(29, 27, 27)" : "rgb(242, 242, 242)")
+          && data.surface === (theme === "dark" ? "rgb(38, 38, 38)" : "rgb(255, 255, 255)")
+          && data.chrome === (theme === "dark" ? "#1D1B1B" : "#F2F2F2")
+          && data.business.length === 1 && data.business[0] === "/api/v1/capabilities");
+        await screenshot(environment, `${theme}-${scenario}`);
+      }
+    }
+  });
+
+  await runCheck("appearance-transition", "System palette changes cancel a native snapshot and retain committed navigation", async () => {
+    const environment = await createPage({ theme: "system" });
+    await environment.page.emulateMedia({ colorScheme: "dark" });
+    await recording(environment, true);
+    await swipe(environment, 1);
+    await environment.page.waitForFunction(() => window.__tabCheck.frozen);
+    const before = streamStats(environment.transport);
+    await environment.page.emulateMedia({ colorScheme: "light" });
+    await ready(environment, "/docker");
+    await verify("OS theme changes remove the old screenshot and preserve live transports",
+      await environment.page.evaluate(() => ({
+        theme: document.documentElement.dataset.theme,
+        marker: document.documentElement.dataset.tabTransition ?? null,
+        animated: document.getAnimations().filter((animation) =>
+          String(animation.effect?.pseudoElement).includes("view-transition")).length,
+        contentLayers: document.querySelectorAll("[data-tab-content]").length,
+      })), (data) => data.theme === "light" && !data.marker && data.animated === 0 && data.contentLayers === 1);
+    await verify("Palette changes retain the single stream", { before, after: streamStats(environment.transport) },
+      (data) => data.before.opens === data.after.opens && data.after.active === 1 && data.after.maxActive === 1);
+    await consistent(environment, "/docker");
+    await screenshot(environment, "live-light-after-native-cancel");
+  });
+
+  if (process.env.CHECK_PWA === "1") {
+    await runCheck("appearance-pwa", "Real waiting updates and offline shell retain both palettes", async () => {
+      for (const theme of ["dark", "light"]) {
+        const context = await browser.newContext({ viewport: { width: 320, height: 740 },
+          hasTouch: true, isMobile: true, serviceWorkers: "allow", reducedMotion: "reduce" });
+        await context.addInitScript((value) => localStorage.setItem("unraid-mobile.theme", value), theme);
+        const page = await context.newPage();
+        page.setDefaultTimeout(15000);
+        const environment = { context, page, releaseChunk() {} };
+        pages.add(environment);
+        await page.goto(base.href, { waitUntil: "domcontentloaded" });
+        await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+        await page.getByRole("button", { name: "Appearance", exact: true }).waitFor();
+        let navigations = 0;
+        page.on("framenavigated", (frame) => { if (frame === page.mainFrame()) navigations++; });
+        await page.evaluate(async () => {
+          await fetch("/__test/new-worker", { method: "POST" });
+          await (await navigator.serviceWorker.getRegistration()).update();
+        });
+        await page.getByRole("button", { name: "Refresh to update" }).waitFor();
+        await verify(`${theme} real waiting banner has readable theme colors and 44px controls`,
+          await page.evaluate(() => ({
+            theme: document.documentElement.dataset.theme,
+            background: getComputedStyle(document.querySelector('[role="status"]')).backgroundColor,
+            buttons: [...document.querySelectorAll('[role="status"] button')].map((node) => {
+              const rect = node.getBoundingClientRect();
+              return { width: rect.width, height: rect.height };
+            }),
+            overflow: document.documentElement.scrollWidth > innerWidth,
+          })), (data) => data.theme === theme && !data.overflow
+            && data.background === (theme === "dark" ? "rgb(38, 38, 38)" : "rgb(255, 255, 255)")
+            && data.buttons.every((button) => button.width >= 44 && button.height >= 44));
+        await screenshot(environment, `${theme}-waiting-update`);
+        await page.getByRole("button", { name: "Dismiss update" }).click();
+        await verify(`${theme} dismissal keeps the waiting worker and current document`,
+          await page.evaluate(async () => ({
+            waiting: !!(await navigator.serviceWorker.getRegistration()).waiting,
+            banner: !!document.querySelector('[aria-label="Refresh to update"]'),
+          })), (data) => data.waiting && !data.banner && navigations === 0);
+        await page.evaluate(async () => {
+          await fetch("/__test/new-worker", { method: "POST" });
+          await (await navigator.serviceWorker.getRegistration()).update();
+        });
+        await page.getByRole("button", { name: "Refresh to update" }).waitFor();
+        await page.getByRole("button", { name: "Refresh to update" }).click();
+        await page.waitForFunction(() => !!navigator.serviceWorker.controller
+          && !document.querySelector('[aria-label="Refresh to update"]') && !!document.querySelector("nav"));
+        await verify(`${theme} explicit update refreshes once and restores saved appearance`,
+          { navigations, theme: await page.evaluate(() => document.documentElement.dataset.theme),
+            waiting: await page.evaluate(async () => !!(await navigator.serviceWorker.getRegistration()).waiting) },
+          (data) => data.navigations === 1 && data.theme === theme && !data.waiting);
+        await context.setOffline(true);
+        const offline = await context.newPage();
+        await offline.goto(new URL("/storage", base).href, { waitUntil: "domcontentloaded" });
+        await offline.getByRole("button", { name: "Retry connection", exact: true }).waitFor();
+        await verify(`${theme} real offline cold navigation loads only the application shell`,
+          await offline.evaluate(async () => ({
+            theme: document.documentElement.dataset.theme,
+            navigation: !!document.querySelector("nav"),
+            background: getComputedStyle(document.body).backgroundColor,
+            cached: (await Promise.all((await caches.keys()).map(async (key) =>
+              (await (await caches.open(key)).keys()).map((request) => new URL(request.url).pathname)))).flat(),
+          })), (data) => data.theme === theme && !data.navigation
+            && data.background === (theme === "dark" ? "rgb(29, 27, 27)" : "rgb(242, 242, 242)")
+            && data.cached.length > 0 && !data.cached.some((path) => path.startsWith("/api/") || path === "/healthz"));
+        await screenshot({ page: offline }, `${theme}-offline-cold-storage`);
+      }
+    });
+  }
 
   for (const [from, to, direction] of [
     ["/", "/docker", 1], ["/docker", "/", -1], ["/docker", "/vm", 1],

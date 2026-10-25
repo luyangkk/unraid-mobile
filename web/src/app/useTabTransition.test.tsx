@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mountApp, settle, systemSample } from "../test/app-fixtures";
 import { swipe } from "../test/touch";
 import * as routerModule from "./router";
+import { setTheme } from "../lib/theme";
 
 const restoreRoutes: (() => void)[] = [];
 
@@ -74,6 +75,109 @@ afterEach(() => {
 });
 
 describe("Tab transition transactions", () => {
+  it("cancels native visuals on an OS palette change without enabling reduced motion", async () => {
+    localStorage.setItem("unraid-mobile.theme", "system");
+    const media = new EventTarget() as MediaQueryList;
+    Object.defineProperty(media, "matches", { configurable: true, value: true });
+    const native = nativeBrowser();
+    const app = await mountApp("/", true, false, media);
+    try {
+      await swipe(app.host.querySelector("main")!);
+      await settle();
+      expect(document.documentElement.dataset.theme).toBe("dark");
+      await act(async () => {
+        Object.defineProperty(media, "matches", { configurable: true, value: false });
+        media.dispatchEvent(new Event("change"));
+      });
+      expect(document.documentElement.dataset.theme).toBe("light");
+      expect(native.handles[0].skipCount).toBe(1);
+      expect(document.documentElement.hasAttribute("data-tab-transition")).toBe(false);
+      expect(window.location.pathname).toBe("/docker");
+      await swipe(app.host.querySelector("main")!);
+      await settle();
+      expect(native.handles).toHaveLength(2);
+      native.handles[1].finished.resolve();
+    } finally { await app.dispose(); }
+  });
+
+  it("cancels a captured old palette before changing the root through storage sync", async () => {
+    const native = nativeBrowser();
+    const app = await mountApp("/", true, false);
+    try {
+      await swipe(app.host.querySelector("main")!);
+      await settle();
+      expect(document.documentElement.hasAttribute("data-tab-transition")).toBe(true);
+      await act(async () => window.dispatchEvent(new StorageEvent("storage", {
+        key: "unraid-mobile.theme", newValue: "light",
+      })));
+      expect(document.documentElement.dataset.theme).toBe("light");
+      expect(native.handles[0].skipCount).toBe(1);
+      expect(document.documentElement.hasAttribute("data-tab-transition")).toBe(false);
+      expect(window.location.pathname).toBe("/docker");
+      expect(app.host.querySelector<HTMLElement>("[data-tab-content]")!.style.opacity).toBe("1");
+      await swipe(app.host.querySelector("main")!);
+      await settle();
+      expect(window.location.pathname).toBe("/vm");
+      expect(native.handles).toHaveLength(2);
+      native.handles[1].finished.resolve();
+    } finally { await app.dispose(); }
+  });
+
+  it("finishes submitted navigation without reviving visuals after a pending theme change", async () => {
+    const native = nativeBrowser();
+    const loading = deferred();
+    const getRouter = captureRouter(() => loading.promise);
+    const app = await mountApp("/docker", true, false);
+    const navigate = vi.spyOn(getRouter(), "navigate");
+    try {
+      await swipe(app.host.querySelector("main")!);
+      await settle();
+      expect(app.host.textContent).toContain("Loading page");
+      await act(async () => setTheme("light"));
+      expect(native.handles[0].skipCount).toBe(1);
+      await act(async () => loading.resolve());
+      await settle();
+      expect(window.location.pathname).toBe("/vm");
+      expect(app.host.textContent).toContain("Windows");
+      expect(navigate).toHaveBeenCalledTimes(1);
+      const content = app.host.querySelector<HTMLElement>("[data-tab-content]")!;
+      expect(content.style.opacity).toBe("1");
+      expect(content.style.transform).toBe("none");
+      expect(document.documentElement.hasAttribute("data-tab-transition")).toBe(false);
+    } finally { loading.resolve(); await app.dispose(); }
+  });
+
+  it("invalidates an unsubmitted capture callback when its palette changes", async () => {
+    const native = nativeBrowser("callback-held");
+    const getRouter = captureRouter();
+    const app = await mountApp("/", true, false);
+    const navigate = vi.spyOn(getRouter(), "navigate");
+    try {
+      await swipe(app.host.querySelector("main")!);
+      await settle();
+      await act(async () => { setTheme("light"); native.handles[0].release(); });
+      await settle();
+      expect(native.handles[0].skipCount).toBe(1);
+      expect(navigate).not.toHaveBeenCalled();
+      expect(window.location.pathname).toBe("/");
+      expect(document.documentElement.hasAttribute("data-tab-transition")).toBe(false);
+    } finally { await app.dispose(); }
+  });
+
+  it("resets an active Motion fallback immediately when the palette changes", async () => {
+    const app = await mountApp("/", true, false);
+    try {
+      await swipe(app.host.querySelector("main")!);
+      await settle();
+      const content = app.host.querySelector<HTMLElement>("[data-tab-content]")!;
+      expect(Number(content.style.opacity)).toBeLessThan(1);
+      await act(async () => setTheme("light"));
+      expect(content.style.opacity).toBe("1");
+      expect(content.style.transform).toBe("none");
+      expect(window.location.pathname).toBe("/docker");
+    } finally { await app.dispose(); }
+  });
+
   it.each([
     ["/", -90, "/docker", "1", "-32px", "32px"],
     ["/docker", -90, "/vm", "1", "-32px", "32px"],

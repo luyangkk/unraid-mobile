@@ -7,7 +7,7 @@ import { VMPanel } from "../features/vm/VMPanel";
 import { StoragePanel } from "../features/storage/StoragePanel";
 import { SystemPanel } from "../features/system/SystemPanel";
 
-const entryClass = "flex min-h-11 items-center justify-end rounded-lg px-2 text-sm font-medium text-cyan-300 focus-visible:outline-2 focus-visible:outline-cyan-300";
+const entryClass = "flex min-h-11 items-center justify-end rounded-lg px-2 text-sm font-medium text-brand-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring";
 
 // HomePage shows complete System telemetry and compact resource overviews.
 export function HomePage() {
@@ -22,7 +22,7 @@ export function HomePage() {
       <h2 className="text-xl font-semibold">Home</h2>
       {system.snapshot ? (
         <div>
-          {systemStale ? <p role="status" className="mb-2 text-xs text-amber-200">Showing the last sample. Sampled <time dateTime={system.snapshot.timestamp}>{system.snapshot.timestamp}</time></p> : null}
+          {systemStale ? <p role="status" className="mb-2 text-xs text-warning">Showing the last sample. Sampled <time dateTime={system.snapshot.timestamp}>{system.snapshot.timestamp}</time></p> : null}
           <div className={systemStale ? "opacity-60" : ""}><SystemPanel snapshot={system.snapshot} points={system.points} /></div>
         </div>
       ) : <LoadingPanel title="System" message="Connecting to the server…" />}

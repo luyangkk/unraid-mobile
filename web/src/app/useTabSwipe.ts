@@ -66,7 +66,29 @@ export function useTabSwipe(main: RefObject<HTMLElement | null>, nav: RefObject<
       const dx = Math.abs(event.clientX - held.x);
       const dy = Math.abs(event.clientY - held.y);
       if (!held.direction && Math.max(dx, dy) >= tabMotion.directionOffset) {
-        held.direction = dx >= tabMotion.directionRatio * dy ? "horizontal" : "vertical";
+        if (dx >= tabMotion.directionRatio * dy) held.direction = "horizontal";
+        else if (dy >= tabMotion.directionRatio * dx) held.direction = "vertical";
+      }
+    }
+    // Safari can start scrolling despite pan-y after a horizontal pointer move.
+    // Reserve horizontal movement in the native, non-passive touchmove phase,
+    // before scrolling cancels the pointer stream. Keep Pointer Events as the
+    // sole navigation lifecycle; a canceled pointer must never navigate later.
+    function reserveHorizontalTouch(event: TouchEvent) {
+      const held = gesture.current;
+      if (!held) return;
+      if (event.touches.length !== 1 || !event.cancelable || blocked()) {
+        cancel();
+        return;
+      }
+      if (held.direction === "vertical") return;
+      const touch = event.touches[0];
+      const dx = Math.abs(touch.clientX - held.x);
+      const dy = Math.abs(touch.clientY - held.y);
+      // Do not wait for the 12px recognition or 60px navigation threshold:
+      // Safari can commit to scrolling on the first touchmove before either.
+      if (held.direction === "horizontal" || (dx > 0 && dx >= tabMotion.directionRatio * dy)) {
+        event.preventDefault();
       }
     }
     // up confirms one destination on release and consumes its nav compatibility click.
@@ -94,7 +116,7 @@ export function useTabSwipe(main: RefObject<HTMLElement | null>, nav: RefObject<
     // lost resets tracking after cancellation or loss of pointer capture.
     function lost(event: PointerEvent) {
       pointers.delete(event.pointerId);
-      cancel();
+      if (gesture.current?.id === event.pointerId) cancel();
     }
     // click suppresses only the compatibility click belonging to a valid nav swipe.
     function click(event: MouseEvent) {
@@ -124,6 +146,11 @@ export function useTabSwipe(main: RefObject<HTMLElement | null>, nav: RefObject<
     });
     observer.observe(document.body, { childList: true, subtree: true });
     const unsubscribe = router.subscribe("onBeforeNavigate", cancel);
+    // Scope scroll-blocking listeners to the two gesture surfaces, not window.
+    const surfaces = [main.current, nav.current];
+    for (const surface of surfaces) {
+      surface?.addEventListener("touchmove", reserveHorizontalTouch, { capture: true, passive: false });
+    }
     window.addEventListener("pointerdown", down, true);
     window.addEventListener("pointermove", track, true);
     window.addEventListener("pointerup", up, true);
@@ -135,6 +162,9 @@ export function useTabSwipe(main: RefObject<HTMLElement | null>, nav: RefObject<
       visibility();
       observer.disconnect();
       unsubscribe();
+      for (const surface of surfaces) {
+        surface?.removeEventListener("touchmove", reserveHorizontalTouch, true);
+      }
       window.removeEventListener("pointerdown", down, true);
       window.removeEventListener("pointermove", track, true);
       window.removeEventListener("pointerup", up, true);

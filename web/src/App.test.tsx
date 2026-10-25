@@ -3,7 +3,7 @@ import { onlineManager } from "@tanstack/react-query";
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { dockerSample, mountApp, settle, storageSample, systemSample } from "./test/app-fixtures";
-import { pointer, swipe, touchClick } from "./test/touch";
+import { pointer, swipe, touchClick, touchMove } from "./test/touch";
 import { animate } from "motion/react";
 import * as routerModule from "./app/router";
 
@@ -13,6 +13,73 @@ vi.mock("motion/react", async (importOriginal) => {
 });
 
 describe("primary tab gestures", () => {
+  it.each(["main", "nav a"])("reserves horizontal touch movement on %s before Safari can take over scrolling", async (selector) => {
+    const app = await mountApp("/docker");
+    try {
+      const target = app.host.querySelector(selector)!;
+      await pointer(target, "pointerdown", { x: 220 });
+      // The first native touchmove can arrive before our 12px recognition threshold.
+      await pointer(target, "pointermove", { x: 212, y: 152, time: 1010 });
+      const first = await touchMove(target, [{ x: 212, y: 152 }]);
+      expect(first.defaultPrevented).toBe(true);
+      await pointer(target, "pointermove", { x: 190, y: 154, time: 1030 });
+      expect((await touchMove(target, [{ x: 190, y: 154 }])).defaultPrevented).toBe(true);
+      // Model the scroll takeover that would otherwise cancel the pointer stream.
+      const drift = await touchMove(target, [{ x: 130, y: 175 }]);
+      if (!drift.defaultPrevented) await pointer(target, "pointercancel", { x: 130, y: 175 });
+      await pointer(target, "pointerup", { x: 130, y: 175, time: 1200 });
+      await settle();
+      expect(drift.defaultPrevented).toBe(true);
+      expect(window.location.pathname).toBe("/vm");
+      expect(app.requests.filter(({ url }) => url.endsWith("/events"))).toHaveLength(1);
+    } finally { await app.dispose(); }
+  });
+
+  it.each(["vertical", "diagonal", "multi", "control", "edge", "canceled", "modal"])(
+    "does not prevent native touch movement for %s", async (reason) => {
+      const app = await mountApp("/docker");
+      const node = document.createElement(reason === "control" ? "button" : "div");
+      const modal = document.createElement("div");
+      try {
+        app.host.querySelector("main")!.append(node);
+        const x = reason === "edge" ? 10 : 220;
+        await pointer(node, "pointerdown", { x });
+        if (reason === "canceled") await pointer(node, "pointercancel", { x });
+        if (reason === "modal") {
+          modal.setAttribute("data-sheet-overlay", "");
+          document.body.append(modal);
+        }
+        const points = [{ x: x - 90, y: reason === "vertical" ? 300 : reason === "diagonal" ? 230 : 150 }];
+        if (reason === "multi") points.push({ x: 240, y: 150 });
+        await pointer(node, "pointermove", { ...points[0], time: 1100 });
+        expect((await touchMove(node, points)).defaultPrevented).toBe(false);
+        if (reason === "multi") {
+          // Lifting one finger must not resume the abandoned swipe.
+          expect((await touchMove(node, [points[0]])).defaultPrevented).toBe(false);
+          await pointer(node, "pointerup", { x: x - 90, time: 1200 });
+          await settle();
+          expect(window.location.pathname).toBe("/docker");
+        }
+      } finally { modal.remove(); node.remove(); await app.dispose(); }
+    },
+  );
+
+  it("abandons a swipe when native scrolling has already made touchmove non-cancelable", async () => {
+    const app = await mountApp("/docker");
+    try {
+      const main = app.host.querySelector("main")!;
+      await pointer(main, "pointerdown", { x: 220 });
+      await pointer(main, "pointermove", { x: 130, time: 1100 });
+      expect((await touchMove(main, [{ x: 130 }], false)).defaultPrevented).toBe(false);
+      await pointer(main, "pointerup", { x: 130, time: 1200 });
+      await settle();
+      expect(window.location.pathname).toBe("/docker");
+      await swipe(main);
+      await settle();
+      expect(window.location.pathname).toBe("/vm");
+    } finally { await app.dispose(); }
+  });
+
   it.each([
     ["/", -90, "/docker"], ["/docker", -90, "/vm"], ["/vm", -90, "/storage"],
     ["/storage", 90, "/vm"], ["/vm", 90, "/docker"], ["/docker", 90, "/"],

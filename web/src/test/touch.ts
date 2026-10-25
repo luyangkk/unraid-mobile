@@ -4,6 +4,16 @@ type TouchPoint = {
   x: number; y?: number; id?: number; time?: number; pointerType?: string; isPrimary?: boolean;
 };
 
+// touchMove complements Pointer Events with the browser's cancelable scroll event.
+export async function touchMove(target: EventTarget, points: TouchPoint[], cancelable = true) {
+  const event = new Event("touchmove", { bubbles: true, cancelable });
+  Object.defineProperty(event, "touches", { value: points.map((point) => ({
+    identifier: point.id ?? 7, clientX: point.x, clientY: point.y ?? 150,
+  })) });
+  await act(async () => { target.dispatchEvent(event); });
+  return event;
+}
+
 // pointer delivers browser-shaped events with deterministic coordinates and time.
 export async function pointer(target: EventTarget, type: string, point: TouchPoint) {
   await act(async () => {

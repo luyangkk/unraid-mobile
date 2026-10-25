@@ -1,0 +1,24 @@
+{
+  "checks": [
+    "Initial entry has no fade",
+    "Native main touch switches all six adjacent destinations",
+    "Stable single main shows real opacity entry frames",
+    "System updates do not replay the fade",
+    "Boundary bottom swipe does not navigate or add History",
+    "Bottom link swipe navigates once without activating the touched link",
+    "A fresh bottom tap still works after a swipe",
+    "History back/forward keeps content and active navigation aligned",
+    "Viewport edge touch does not trigger Tab navigation",
+    "Native touchCancel discards Tab navigation",
+    "Native vertical body scrolling preserves the selected Tab",
+    "Scrolled content reserves native horizontal touch with later vertical drift and navigates once",
+    "Sheet right touch closes without changing Tab, restoring focus and scrolling",
+    "Existing Sheet handle drag still dismisses without changing Tab",
+    "Route switching adds no System SSE or capabilities requests",
+    "Delayed real lazy chunk shows Router pending UI, rejects swipes, accepts superseding clicks",
+    "320px reduced-motion view keeps Tab swipes and disables entry animation without overflow"
+  ],
+  "errors": [],
+  "startedAt": "2026-10-25T07:02:19.378Z",
+  "completedAt": "2026-10-25T07:02:34.824Z"
+}

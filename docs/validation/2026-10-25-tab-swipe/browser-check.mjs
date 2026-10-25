@@ -27,6 +27,11 @@ async function connect(width = 390, reducedMotion = "no-preference") {
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.evaluate(() => {
     window.touchTrace = [];
+    window.touchScrollChecks = [];
+    // Bubble observation runs after the Shell's native touchmove capture guard.
+    window.addEventListener("touchmove", (event) => window.touchScrollChecks.push({
+      prevented: event.defaultPrevented, cancelable: event.cancelable,
+    }), { passive: true });
     for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel", "lostpointercapture", "click"]) {
       window.addEventListener(type, (event) => window.touchTrace.push({
         type, x: event.clientX, y: event.clientY, id: event.pointerId,
@@ -154,6 +159,43 @@ try {
   await page.waitForFunction((previous) => scrollY > previous, previousScroll);
   await route(page, "/storage");
   report.checks.push("Native vertical body scrolling preserves the selected Tab");
+  assert.equal(await page.evaluate(() => window.touchScrollChecks.at(-1).prevented), false);
+  // Start within a scrolled content area: this differs from the fixed bottom bar.
+  // Let the preceding vertical flick's inertia finish before measuring drift.
+  await page.evaluate(async () => {
+    let previous = scrollY;
+    let stable = 0;
+    for (let frame = 0; frame < 180 && stable < 8; frame++) {
+      await new Promise(requestAnimationFrame);
+      stable = scrollY === previous ? stable + 1 : 0;
+      previous = scrollY;
+    }
+    if (stable < 8) throw new Error("Vertical flick did not settle");
+  });
+  await page.evaluate(() => { scrollTo(0, 80); window.touchScrollChecks = []; });
+  const driftStart = await page.evaluate(() => {
+    for (let y = 180; y < innerHeight - 120; y += 20) {
+      const target = document.elementFromPoint(160, y);
+      if (target && document.querySelector("main").contains(target)
+        && !target.closest("a,button,summary,input,select,textarea")) return { x: 160, y };
+    }
+    throw new Error("No scrolled content point");
+  });
+  const driftScroll = await page.evaluate(() => scrollY);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [driftStart] });
+  for (let step = 1; step <= 14; step++) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{
+      x: driftStart.x + 100 * step / 14,
+      y: driftStart.y + (step > 4 ? 30 * (step - 4) / 10 : 0),
+    }] });
+  }
+  assert.equal(await page.evaluate(() => scrollY), driftScroll);
+  assert.equal(await page.evaluate(() => window.touchScrollChecks.some(({ prevented }) => prevented)), true);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await route(page, "/vm");
+  report.checks.push("Scrolled content reserves native horizontal touch with later vertical drift and navigates once");
+  await page.getByRole("navigation").getByRole("link", { name: "Storage", exact: true }).tap();
+  await route(page, "/storage");
   await page.evaluate(() => scrollTo(0, 0));
   await openSheet(page);
   let box = await page.locator("[data-sheet-body]").boundingBox();
@@ -207,11 +249,12 @@ try {
   report.failure = error.message;
   if (diagnosticPage && !diagnosticPage.isClosed()) {
     report.trace = await diagnosticPage.evaluate(() => window.touchTrace);
+    report.touchScrollChecks = await diagnosticPage.evaluate(() => window.touchScrollChecks);
     report.path = new URL(diagnosticPage.url()).pathname;
   }
   throw error;
 } finally {
-  await fs.writeFile(new URL("./browser-results.json", import.meta.url), JSON.stringify(report, null, 2) + "\n");
+  await fs.writeFile(process.env.CHECK_REPORT_PATH ?? new URL("./browser-results.json", import.meta.url), JSON.stringify(report, null, 2) + "\n");
   await browser.close();
 }
 console.log(JSON.stringify(report, null, 2));

@@ -41,6 +41,7 @@ async function checkIcon(path, size, maskable = false) {
   }
   const pixels = inflateSync(Buffer.concat(chunks));
   let detailPixels = 0;
+  let artworkPixels = 0;
   for (let y = 0; y < size; y++) {
     const row = y * (size * 3 + 1);
     assert.equal(pixels[row], 0);
@@ -48,13 +49,15 @@ async function checkIcon(path, size, maskable = false) {
       const rgb = [...pixels.subarray(row + 1 + x * 3, row + 4 + x * 3)];
       const background = rgb[0] === 2 && rgb[1] === 6 && rgb[2] === 23;
       if (!background) detailPixels++;
+      if (rgb[0] > 150 && rgb[1] < 180 && rgb[2] < 90) artworkPixels++;
       if (x === 0 || y === 0 || x === size - 1 || y === size - 1 ||
           maskable && Math.hypot(x + 0.5 - size / 2, y + 0.5 - size / 2) > size * 0.4) {
         assert.ok(background, "icon edges and maskable outer area must be background");
       }
     }
   }
-  assert.ok(detailPixels > size * size * 0.1, "icon must contain visible server detail");
+  assert.ok(detailPixels > size * size * 0.1, "icon must contain visible artwork");
+  assert.ok(artworkPixels > size * size * 0.01, "icon must contain the provided red/orange artwork");
 }
 for (const icon of manifest.icons) await checkIcon(icon.src, Number(icon.sizes.split("x")[0]), icon.purpose === "maskable");
 await checkIcon("/icons/apple-touch-icon.png", 180);

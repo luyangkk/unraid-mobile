@@ -63,6 +63,13 @@ uncached, preserve the Authorization header, and disable proxy buffering for
 SSE. The Go server itself does not terminate TLS. `APP_TOKEN` controls API
 access; it is **not a replacement for HTTPS** and cannot encrypt credentials.
 
+Application icons use the user-selected
+[HD-Icons Unraid artwork](https://raw.githubusercontent.com/xushier/HD-Icons/main/border-radius/unraid-2.png),
+bundled locally. The original PNG is in `web/icon-source/unraid-2.png`; regenerate
+all five icons with `python3 web/scripts/generate-pwa-icons.py` (ImageMagick
+`magick` required). Maskable artwork fits inside the safe circle on an opaque
+Slate background. Installation and rendering never fetch the remote image.
+
 The manifest `/manifest.webmanifest`, worker `/sw.js`, and `/icons/*.png` remain
 public in LAN and token-enabled modes. The server sends
 `application/manifest+json` for the manifest, a JavaScript MIME type for the

@@ -407,7 +407,7 @@ describe("primary tab gestures", () => {
 
 // runningDetails finds the visible Docker group through its summary label.
 function runningDetails(host: HTMLElement): HTMLDetailsElement {
-  const summary = [...host.querySelectorAll("summary")].find((node) => node.textContent === "Running (1)");
+  const summary = [...host.querySelectorAll("summary")].find((node) => node.textContent?.startsWith("Running ("));
   if (!summary) throw new Error("Missing Docker Running group");
   return summary.parentElement as HTMLDetailsElement;
 }
@@ -461,28 +461,54 @@ describe("primary pages", () => {
     } finally { await app.dispose(); }
   });
 
-  it.each([
-    ["/", "Home", "Docker"],
-    ["/docker", "Docker", "Home"],
-  ])("keeps the Running fold independent when leaving %s", async (path, first, second) => {
-    const app = await mountApp(path);
+  it("keeps Home expansion across routes and polling, independently of the Docker fold", async () => {
+    const app = await mountApp();
+    const containers = Array.from({ length: 11 }, (_, index) => ({
+      ...dockerSample.containers[0], id: String(index), name: `app${index + 1}`,
+    }));
+    const snapshot = { ...dockerSample, containers, summary: { running: 11, stopped: 0, other: 0 } };
+    app.responses.set("/api/v1/docker", snapshot);
+    const grid = () => app.host.querySelector('ul[aria-label="Running containers"]')!;
+    const toggle = () => grid().closest("section")!.querySelector<HTMLButtonElement>("button[aria-expanded]");
     try {
+      await act(async () => { app.client.setQueryData(["docker"], snapshot); });
+      await settle();
+      expect(grid().children).toHaveLength(8);
+      expect(toggle()!.getAttribute("aria-expanded")).toBe("false");
+      await act(async () => toggle()!.click());
+      expect(grid().children).toHaveLength(11);
+      await app.navigate("Docker");
       expect(runningDetails(app.host).open).toBe(true);
       await toggleRunning(app.host, false);
-      await app.navigate(second);
-      expect(runningDetails(app.host).open).toBe(true);
-
-      await toggleRunning(app.host, false);
-      await app.navigate(first);
+      await app.navigate("Home");
+      expect(grid().children).toHaveLength(11);
+      await act(async () => { app.client.setQueryData(["docker"], { ...snapshot, containers: containers.slice(0, 4) }); });
+      await settle();
+      expect(grid().children).toHaveLength(4);
+      expect(toggle()).toBeNull();
+      await act(async () => { app.client.setQueryData(["docker"], { ...snapshot, containers: [...containers].reverse() }); });
+      await settle();
+      expect(grid().children).toHaveLength(11);
+      expect(grid().firstElementChild?.textContent).toBe("app1");
+      await act(async () => toggle()!.click());
+      expect(grid().children).toHaveLength(8);
+      await app.navigate("Docker");
       expect(runningDetails(app.host).open).toBe(false);
-      await toggleRunning(app.host, true);
-      await app.navigate(second);
-      expect(runningDetails(app.host).open).toBe(false);
-
-      await toggleRunning(app.host, true);
-      await app.navigate(first);
-      expect(runningDetails(app.host).open).toBe(true);
+      await app.navigate("Home");
+      expect(grid().children).toHaveLength(8);
+      await act(async () => toggle()!.click());
+      expect(localStorage.getItem("unraid-mobile.home.docker.runningCollapsed.v1")).toBeNull();
+      expect(sessionStorage.length).toBe(0);
     } finally { await app.dispose(); }
+    // A fresh Shell models a reload: browser storage must not restore expansion.
+    const reloaded = await mountApp();
+    try {
+      reloaded.responses.set("/api/v1/docker", snapshot);
+      await act(async () => { reloaded.client.setQueryData(["docker"], snapshot); });
+      await settle();
+      expect(reloaded.host.querySelector('ul[aria-label="Running containers"]')?.children).toHaveLength(8);
+      expect(reloaded.requests.filter(({ url }) => url.endsWith("/events"))).toHaveLength(1);
+    } finally { await reloaded.dispose(); }
   });
 
   it("supports navigation and browser back/forward without replacing the live shell", async () => {
@@ -635,7 +661,8 @@ describe("primary pages", () => {
       expect(app.requests).toHaveLength(0);
       expect(streamSignal?.aborted).toBe(true);
       expect(app.host.textContent).toContain("Updates paused");
-      expect(app.host.querySelectorAll(".opacity-60")).toHaveLength(4);
+      expect(app.host.querySelectorAll(".opacity-60")).toHaveLength(3);
+      expect(app.host.querySelectorAll(".text-stale-foreground")).toHaveLength(1);
       hidden = false;
       await act(async () => document.dispatchEvent(new Event("visibilitychange")));
       await settle();

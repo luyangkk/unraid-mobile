@@ -44,8 +44,8 @@
 - System 指标集中在一个面板，Storage 按 Array/Parity/Pools/Disks 分组，Disks 与诊断用 `details/summary` 折叠；磁盘行显示摘要，点击后用 AppSheet 展示详情。Button 保留至少 44px 高度、焦点和禁用反馈；图标按钮有可读标签，状态含义不能只靠颜色。
 - 业务组件只使用 `components/app/AppSheet`，不直接依赖 Radix Dialog；动画、手势阈值和减少动画偏好集中在 `lib/motion.ts`。AppSheet 处理模态焦点、关闭后的焦点返回、页面滚动锁定、内部滚动和底部安全区；纵向拖动仅由把手开始，面板支持以水平位移为主的右划关闭，忽略交互控件上的起始手势，保留内容纵向滚动和双指缩放；reduced-motion 禁用手势关闭和位移动画。
 - 磁盘选择只在 StoragePanel 本地保存 `name`，每次从当前快照重新查找，不请求新数据；磁盘消失或采集不可用后停止展示旧详情，stale 提示与采样时间同步传入 Sheet。休眠盘始终显示 `Temp —`。Home Overview 不提供磁盘触发入口。
-- Docker 按 Running / Stopped / Other 分组，Stopped 默认折叠；Running 折叠偏好可存 localStorage，不保存业务快照。使用通用本地图标，未验证 metadata 前不猜测图标字段或路径。读展示不增加动作按钮。
-- Home 仅显示 Running 容器和 VM、Array/Parity 状态及 Pool 容量摘要；完整 Stopped / Other 与磁盘详情留在独立页面。离线、Query paused、刷新失败及恢复期间保留旧样本样式和采样时间，成功刷新后撤下旧样本标记。
+- Docker 按 Running / Stopped / Other 分组，Stopped 默认折叠；Running 折叠偏好可存 localStorage，不保存业务快照。Docker 独立页保留通用本地图标。Home 图标读取已经在 Unraid 7.1.0 核实的 `plugins/dynamix.docker.manager/docker.json` 的 `icon` 字段和 `images/` 中的 PNG，复用现有 `/host/var/local/emhttp` 只读挂载；路径必须限制在固定目录内，不下载外部 URL，不返回原始 metadata。元数据最多 1 MiB、单图最多 512 KiB、尺寸最多 4096px、单次采样图片读取最多 8 MiB。图标随后台采样更新，API 仅返回可选 `iconVersion`；受认证保护的 `/api/v1/docker/{id}/icon?v={iconVersion}` 只读当前内存缓存，返回 `no-store`，不进入 PWA 缓存。缺失或无效时回退通用图标。读展示不增加动作按钮。
+- Home 的 Running 容器采用两列图标加名称，名称单行超长省略，不显示资源指标，不增加点击行为；按名称自然排序并忽略大小写，默认展示 8 个，支持展开其余项目和收起。展开状态由 AppShell 内存保存，切页及采样刷新保留，页面重载后恢复默认，不写浏览器存储，也不受旧 Home Running 折叠偏好影响。Home 仅显示 Running 容器和 VM、Array/Parity 状态及 Pool 容量摘要；完整 Stopped / Other 与磁盘详情留在独立页面。离线、Query paused、刷新失败及恢复期间保留旧样本样式和采样时间，成功刷新后撤下旧样本标记。
 - PWA 使用 Vite `injectManifest` 生成带版本的静态预缓存，包含全部路由 chunk；只缓存规范的同源静态资源和符合条件的页面导航。API、health、SSE、Operation、外部请求及携带凭据的请求只走网络；编码或非法路径不能命中缓存，缺失资源不能回退为缓存 HTML。不缓存业务数据或令牌，不接入 Background Sync、Push 或离线写入。
 - PWA 注册和更新提示放在 SessionGate 外；开发环境默认不注册，注册失败不能阻断页面。新版本只有用户选择 Refresh 后才能激活并让当前页刷新一次，关闭提示或其他标签页接受更新都不能强制刷新当前页。离线冷启动不恢复业务数据；传输失败保留会话 token，恢复时先验证 capabilities，再恢复业务请求和单一 SSE。
 - 安装和 Service Worker 需要可信 HTTPS 或 localhost 安全上下文；局域网 IP 的 HTTP 地址仅支持在线页面，即使经过 VPN 也不具备 PWA 安全上下文。部署可用 HTTPS、Tailscale HTTPS 或可信 HTTPS 反向代理；`APP_TOKEN` 不能替代 HTTPS。Android / iOS 安装、离线启动、更新确认、横屏和安全区仍须按 README 做真实设备验证，不能用自动化测试代替。

@@ -8,6 +8,8 @@ export const PageDataContext = createContext<{
   system: ReturnType<typeof useSystem>;
   foreground: boolean;
   online: boolean;
+  homeDockerExpanded: boolean;
+  setHomeDockerExpanded: (expanded: boolean) => void;
 } | null>(null);
 
 // subscribeVisibility observes page activity without introducing another state store.

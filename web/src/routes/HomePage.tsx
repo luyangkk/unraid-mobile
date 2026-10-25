@@ -12,7 +12,7 @@ const entryClass = "flex min-h-11 items-center justify-end rounded-lg px-2 text-
 // HomePage shows complete System telemetry and compact resource overviews.
 export function HomePage() {
   useTabPageEntry("/");
-  const { system, foreground, online } = usePageData();
+  const { system, foreground, online, homeDockerExpanded, setHomeDockerExpanded } = usePageData();
   const docker = useDockerSnapshot();
   const vms = useVMSnapshot();
   const storage = useStorageSnapshot();
@@ -27,7 +27,7 @@ export function HomePage() {
         </div>
       ) : <LoadingPanel title="System" message="Connecting to the server…" />}
       <div>
-        {docker.data ? <DockerPanel snapshot={docker.data} overview stale={docker.stale} errorMessage={docker.error?.message} />
+        {docker.data ? <DockerPanel snapshot={docker.data} overview overviewExpanded={homeDockerExpanded} onOverviewExpandedChange={setHomeDockerExpanded} loadIcons={foreground && online} stale={docker.stale} errorMessage={docker.error?.message} />
           : <LoadingPanel title="Docker" message={docker.error?.message || "Loading containers…"} />}
         <Link to="/docker" className={entryClass}>View all containers →</Link>
       </div>

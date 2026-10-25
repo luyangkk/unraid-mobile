@@ -55,6 +55,19 @@ func NewServer(config Config) http.Handler {
 		}
 		writeJSON(w, http.StatusOK, config.Docker.Latest())
 	})
+	mux.HandleFunc("GET /api/v1/docker/{id}/icon", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		if config.Docker != nil {
+			if data, ok := config.Docker.Icon(r.PathValue("id"), r.URL.Query().Get("v")); ok {
+				w.Header().Set("Content-Type", "image/png")
+				w.Header().Set("X-Content-Type-Options", "nosniff")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(data)
+				return
+			}
+		}
+		writeError(w, http.StatusNotFound, "DOCKER_ICON_NOT_FOUND", "Container icon unavailable", false)
+	})
 	mux.HandleFunc("GET /api/v1/vms", func(w http.ResponseWriter, _ *http.Request) {
 		if config.VM == nil {
 			writeJSON(w, http.StatusOK, vm.Unavailable(time.Now(), "VM provider unavailable; mount /var/run/libvirt read-only and check socket permissions"))

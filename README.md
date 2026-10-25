@@ -241,9 +241,14 @@ name or a separately mounted `/host/etc/hostname`, the UI says Unraid.
 
 Docker data is sampled in the backend every two seconds and served from
 `GET /api/v1/docker`. The page polls the cache while visible and refreshes after
-returning to the foreground. All Running containers are shown; their collapse
-preference is saved locally. Stopped containers start collapsed, and paused or
-transitional states appear under Other. Failed refreshes retain the last
+returning to the foreground. Home shows Running containers in a two-column
+icon/name grid, naturally sorted by name (case insensitive). Names stay on one
+line with an ellipsis. The first eight appear by default; “Show N more containers”
+expands the grid, and “Show fewer containers” collapses it. Expansion survives
+route changes and polling within the current session, resets on page reload,
+and is never written to browser storage. Container items have no click action.
+The Docker page retains full telemetry, its locally saved Running fold, collapsed
+Stopped containers and the separate Other group for transitional states. Failed refreshes retain the last
 snapshots and sampling time; missing socket access is shown as unavailable.
 
 CPU and network rates use adjacent valid Engine counters. First samples,
@@ -256,8 +261,22 @@ across a restart. Sampling is bounded to four workers, two seconds per request
 and eight seconds per round; deferred containers get priority next round.
 The reader negotiates the daemon's supported range within API 1.24–1.44.
 Only selected display fields are exported, never environment
-variables or full inspect responses. Icons use a generic local container icon
-until an Unraid metadata source is verified.
+variables or full inspect responses. Home icons use Unraid's existing local PNG
+cache, verified on Unraid 7.1.0; the Docker page retains its generic row icon.
+The existing read-only `/var/local/emhttp` mount covers
+`plugins/dynamix.docker.manager/docker.json` and `images/`. The adapter reads only
+the per-container `icon` reference and accepts PNG files beneath that fixed image
+directory, with a 1 MiB metadata limit, 512 KiB per image, 4096px maximum image
+dimensions and an 8 MiB image-read budget per sample. Missing, invalid or
+unsupported icons fall back to the bundled generic icon without disabling Docker.
+No external image URL is downloaded and no template directory or additional host
+mount is needed. `GET /api/v1/docker` includes an optional `iconVersion` digest;
+`GET /api/v1/docker/{id}/icon?v={iconVersion}` serves only the current cached PNG,
+requires the same Bearer Header as other API reads, and returns `Cache-Control:
+no-store`. The frontend fetches it into a temporary object URL, aborts obsolete
+requests and revokes the URL when released. Icons are not cached for offline use.
+See [source verification and local checks](docs/validation/2026-10-25-home-docker/report.md)
+for the tested host version and remaining device/deployment checks.
 
 `capabilities.docker` means Docker data can be read. Separate
 `dockerActions.start/stop/restart` flags remain false, so read access does not

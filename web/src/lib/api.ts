@@ -26,6 +26,7 @@ export type SystemSnapshot = {
 };
 
 export type DockerContainer = {
+  iconVersion?: string;
   id: string;
   name: string;
   state: string;
@@ -199,6 +200,20 @@ export async function getDocker(
     cache: "no-store",
     signal,
   });
+}
+
+// Load only the server's current cached PNG; optional failures use the local icon.
+export async function getDockerIcon(id: string, version: string, signal: AbortSignal): Promise<Blob | null> {
+  const path = `/api/v1/docker/${encodeURIComponent(id)}/icon?v=${encodeURIComponent(version)}`;
+  const response = await authenticatedFetch(path, {
+    signal, cache: "no-store", credentials: "omit", headers: { Accept: "image/png" },
+  });
+  if (!response.ok || response.headers.get("Content-Type")?.split(";")[0] !== "image/png") {
+    void response.body?.cancel().catch(() => {});
+    return null;
+  }
+  const blob = await response.blob();
+  return blob.size > 0 && blob.size <= 512 * 1024 ? blob : null;
 }
 
 // Load the latest VM sample with caller cancellation.

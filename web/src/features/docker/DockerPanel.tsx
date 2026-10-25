@@ -1,5 +1,7 @@
 import { Box } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
+import { Button } from "../../components/ui/button";
+import { ContainerIcon } from "./ContainerIcon";
 import type { DockerContainer, DockerSnapshot } from "../../lib/api";
 import {
   containerGroup,
@@ -16,14 +18,19 @@ export function DockerPanel({
   overview = false,
   stale = false,
   errorMessage,
+  overviewExpanded = false,
+  onOverviewExpandedChange,
+  loadIcons = true,
 }: {
   snapshot: DockerSnapshot;
   overview?: boolean;
   stale?: boolean;
   errorMessage?: string;
+  overviewExpanded?: boolean;
+  onOverviewExpandedChange?: (expanded: boolean) => void;
+  loadIcons?: boolean;
 }) {
-  const preferencePage = overview ? "home" : "docker";
-  const [runningCollapsed, setRunningCollapsed] = useState(() => readRunningCollapsed(preferencePage));
+  const [runningCollapsed, setRunningCollapsed] = useState(() => overview ? false : readRunningCollapsed("docker"));
   const groups: Record<"running" | "stopped" | "other", DockerContainer[]> = {
     running: [],
     stopped: [],
@@ -54,7 +61,7 @@ export function DockerPanel({
           </p>
         </div>
       ) : null}
-      <div className={stale ? "opacity-60" : ""}>
+      <div className={stale ? overview ? "text-stale-foreground" : "opacity-60" : ""}>
         {!snapshot.available ? (
           <p className="mt-3 break-words text-sm text-warning" role="status">
             {snapshot.reason || "Docker data unavailable"}
@@ -65,13 +72,16 @@ export function DockerPanel({
               <p className="mt-3 text-sm text-text-muted">No containers configured</p>
             ) : (
               <>
-                <details
+                {overview ? (
+                  <RunningOverview containers={groups.running} expanded={overviewExpanded}
+                    onExpandedChange={onOverviewExpandedChange} stale={stale} loadIcons={loadIcons} />
+                ) : <details
                   className="mt-3"
                   open={!runningCollapsed}
                   onToggle={(event) => {
                     const collapsed = !event.currentTarget.open;
                     setRunningCollapsed(collapsed);
-                    saveRunningCollapsed(collapsed, preferencePage);
+                    saveRunningCollapsed(collapsed, "docker");
                   }}
                 >
                   <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
@@ -82,7 +92,7 @@ export function DockerPanel({
                   ) : groups.running.map((container) => (
                     <ContainerRow key={container.id} container={container} />
                   ))}
-                </details>
+                </details>}
                 {!overview ? (
                   <details className="mt-2 border-t border-border">
                     <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
@@ -151,5 +161,40 @@ function ContainerRow({ container }: { container: DockerContainer }) {
         </details>
       ) : null}
     </article>
+  );
+}
+
+const overviewLimit = 8;
+const nameOrder = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
+
+// RunningOverview keeps Home compact without changing the shared snapshot order.
+function RunningOverview({ containers, expanded, onExpandedChange, stale, loadIcons }: {
+  containers: DockerContainer[];
+  expanded: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
+  stale: boolean;
+  loadIcons: boolean;
+}) {
+  const listId = useId();
+  const sorted = [...containers].sort((a, b) => nameOrder.compare(a.name, b.name) || a.id.localeCompare(b.id));
+  const shown = expanded ? sorted : sorted.slice(0, overviewLimit);
+  if (sorted.length === 0) return <p className={`mt-3 text-sm ${stale ? "text-stale-text-muted" : "text-text-muted"}`}>No running containers</p>;
+  return (
+    <>
+      <ul id={listId} aria-label="Running containers" className="mt-4 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2">
+        {shown.map((container) => (
+          <li key={container.id} className="flex min-h-12 min-w-0 items-center gap-2">
+            <ContainerIcon container={container} enabled={loadIcons} />
+            <span className="min-w-0 truncate text-sm font-medium" title={container.name}>{container.name}</span>
+          </li>
+        ))}
+      </ul>
+      {sorted.length > overviewLimit ? (
+        <Button type="button" variant="secondary" className="mt-3 w-full" aria-expanded={expanded}
+          aria-controls={listId} onClick={() => onExpandedChange?.(!expanded)}>
+          {expanded ? "Show fewer containers" : `Show ${sorted.length - overviewLimit} more containers`}
+        </Button>
+      ) : null}
+    </>
   );
 }

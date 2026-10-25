@@ -18,7 +18,7 @@ describe("static shell request boundary", () => {
 
   it.each([
     "/api", "/api/", "/api/v1/system", "/api/v1/events", "/api/v1/operations/op_1",
-    "/api/v1/missing", "/healthz", "/healthz/child", "//api/v1/system",
+    "/api/v1/docker/container/icon?v=version", "/api/v1/missing", "/healthz", "/healthz/child", "//api/v1/system",
     "/%61pi/v1/system", "/api%2fv1/events", "/%2fapi/v1/system",
     "/outside/%2e%2e/api/v1/system", "/docker%2fchild", "/docker//child",
     "/.hidden", "/docker/", "/assets", "/assets/missing.js", "/missing.js",

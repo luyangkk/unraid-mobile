@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mountApp, settle, systemSample } from "./test/app-fixtures";
+import { dockerSample, mountApp, settle, systemSample } from "./test/app-fixtures";
 
 const key = "unraid-mobile.theme";
 
@@ -109,14 +109,22 @@ describe("application appearance", () => {
     } finally { await app.dispose(); }
   });
 
-  it("preserves the Portal, focus, route, folds, trend, cache and single SSE", async () => {
+  it("preserves the Portal, focus, route, Home expansion, trend, cache and single SSE", async () => {
     const app = await mountApp();
     try {
       await app.emit({ ...systemSample, timestamp: "2026-10-25T00:00:01Z", cpuUsage: 50 });
       const trend = app.host.querySelector("polyline")?.getAttribute("points");
       const main = app.host.querySelector("main");
-      const details = app.host.querySelector<HTMLDetailsElement>("details")!;
-      await act(async () => { details.open = false; details.dispatchEvent(new Event("toggle")); });
+      const snapshot = { ...dockerSample, containers: Array.from({ length: 9 }, (_, index) => ({
+        ...dockerSample.containers[0], id: String(index), name: `app${index + 1}`,
+      })), summary: { running: 9, stopped: 0, other: 0 } };
+      app.responses.set("/api/v1/docker", snapshot);
+      await act(async () => { app.client.setQueryData(["docker"], snapshot); });
+      await settle();
+      const list = app.host.querySelector('ul[aria-label="Running containers"]')!;
+      const expand = list.closest("section")!.querySelector<HTMLButtonElement>('button[aria-expanded]')!;
+      await act(async () => expand.click());
+      expect(list.children).toHaveLength(9);
       app.client.setQueryData(["theme-retained"], "marker");
       const query = app.client.getQueryCache().find({ queryKey: ["system"] });
       await openAppearance(app.host);
@@ -129,7 +137,8 @@ describe("application appearance", () => {
       expect(document.activeElement).toBe(document.querySelector('input[value="light"]'));
       expect(app.host.querySelector("main")).toBe(main);
       expect(window.location.pathname).toBe("/");
-      expect(details.open).toBe(false);
+      expect(expand.getAttribute("aria-expanded")).toBe("true");
+      expect(list.children).toHaveLength(9);
       expect(app.host.querySelector("polyline")?.getAttribute("points")).toBe(trend);
       expect(app.client.getQueryCache().find({ queryKey: ["system"] })).toBe(query);
       expect(app.client.getQueryData(["theme-retained"])).toBe("marker");

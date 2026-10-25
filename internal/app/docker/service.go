@@ -3,12 +3,15 @@ package docker
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"slices"
 	"sync"
 	"time"
 )
 
 type Container struct {
+	IconVersion      string   `json:"iconVersion,omitempty"`
 	ID               string   `json:"id"`
 	Name             string   `json:"name"`
 	State            string   `json:"state"`
@@ -50,6 +53,7 @@ type Stats struct {
 }
 
 type RawContainer struct {
+	IconPNG         []byte
 	ID, Name, State string
 	StartedAt       *time.Time
 	Stats           *Stats
@@ -65,7 +69,13 @@ type Reader interface {
 	Read(context.Context) (Raw, error)
 }
 
+type cachedIcon struct {
+	version string
+	png     []byte
+}
+
 type Service struct {
+	icons     map[string]cachedIcon
 	collectMu sync.Mutex
 	mu        sync.RWMutex
 	reader    Reader
@@ -100,12 +110,18 @@ func (s *Service) Collect(ctx context.Context) Snapshot {
 		next.Reason = err.Error()
 	}
 	current := make(map[string]Stats)
+	icons := make(map[string]cachedIcon)
 	if err == nil && s.reader != nil {
 		next.Available = true
 		next.Reason = ""
 		next.Diagnostics = stringsCopy(raw.Diagnostics)
 		for _, r := range raw.Containers {
 			c := Container{ID: r.ID, Name: r.Name, State: r.State, Diagnostics: stringsCopy(r.Diagnostics)}
+			if len(r.IconPNG) > 0 {
+				digest := sha256.Sum256(r.IconPNG)
+				c.IconVersion = hex.EncodeToString(digest[:])
+				icons[r.ID] = cachedIcon{version: c.IconVersion, png: slices.Clone(r.IconPNG)}
+			}
 			switch r.State {
 			case "running":
 				next.Summary.Running++
@@ -157,6 +173,7 @@ func (s *Service) Collect(ctx context.Context) Snapshot {
 	s.previous = current
 	s.mu.Lock()
 	s.latest = next
+	s.icons = icons
 	s.mu.Unlock()
 	return clone(next)
 }
@@ -255,4 +272,15 @@ func cloneStats(s Stats) Stats {
 	s.Networks = networks
 	s.MemoryStats = nil
 	return s
+}
+
+// Icon returns an isolated image from the current sample, without host I/O.
+func (s *Service) Icon(id, version string) ([]byte, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	icon, ok := s.icons[id]
+	if !s.latest.Available || !ok || version == "" || icon.version != version {
+		return nil, false
+	}
+	return slices.Clone(icon.png), true
 }

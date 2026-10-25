@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
+import { LogOut, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./components/ui/button";
 import { SystemPanel } from "./features/system/SystemPanel";
 import { StoragePanel } from "./features/storage/StoragePanel";
 import { DockerPanel } from "./features/docker/DockerPanel";
 import { VMPanel } from "./features/vm/VMPanel";
+import { SessionGate } from "./features/auth/SessionGate";
 import {
   getCapabilities,
   getSystem,
@@ -15,6 +16,7 @@ import {
   type SystemSnapshot,
 } from "./lib/api";
 import { subscribeSystem } from "./lib/stream";
+import { shouldRetryRequest } from "./lib/query";
 import {
   appendPoint,
   connectionLabel,
@@ -24,18 +26,29 @@ import {
 
 const systemKey = ["system"] as const;
 
-// App coordinates live System data and cached Docker/VM/Storage snapshots.
+// App admits protected data consumers only after capabilities authentication.
 function App() {
+  return (
+    <SessionGate>{({ logout, hasToken }) => (
+      <Dashboard logout={hasToken ? logout : undefined} />
+    )}</SessionGate>
+  );
+}
+
+// Dashboard coordinates live System data and cached Docker/VM/Storage snapshots.
+export function Dashboard({ logout }: { logout?: () => void }) {
   const queryClient = useQueryClient();
   const { data: snapshot } = useQuery<SystemSnapshot>({
     queryKey: systemKey,
     queryFn: ({ signal }) => getSystem(signal),
     enabled: false,
+    retry: shouldRetryRequest,
   });
   const capabilities = useQuery({
     queryKey: ["capabilities"],
-    queryFn: () => getCapabilities(),
+    queryFn: ({ signal }) => getCapabilities(undefined, signal),
     staleTime: 30000,
+    retry: shouldRetryRequest,
   });
   const storage = useQuery({
     queryKey: ["storage"],
@@ -43,6 +56,7 @@ function App() {
     refetchInterval: 2000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
+    retry: shouldRetryRequest,
   });
   const docker = useQuery({
     queryKey: ["docker"],
@@ -50,6 +64,7 @@ function App() {
     refetchInterval: 2000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: "always",
+    retry: shouldRetryRequest,
   });
   const vms = useQuery({
     queryKey: ["vms"],
@@ -57,6 +72,7 @@ function App() {
     refetchInterval: 3000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: "always",
+    retry: shouldRetryRequest,
   });
   const [connection, setConnection] = useState<Connection>("connecting");
   const [points, setPoints] = useState<Point[]>([]);
@@ -66,7 +82,6 @@ function App() {
     () =>
       subscribeSystem({
         snapshot: getSystem,
-        source: () => new EventSource("/api/v1/events"),
         page: document,
         onSnapshot: (value) => {
           queryClient.setQueryData(systemKey, value);
@@ -111,6 +126,12 @@ function App() {
             </p>
           ) : null}
         </div>
+        <div className="flex gap-2">
+        {logout ? (
+          <Button variant="secondary" aria-label="Clear token" onClick={logout}>
+            <LogOut aria-hidden="true" />
+          </Button>
+        ) : null}
         <Button
           variant="secondary"
           aria-label="Refresh status"
@@ -128,6 +149,7 @@ function App() {
             aria-hidden="true"
           />
         </Button>
+        </div>
       </header>
       <div className="grid gap-4">
         {connection === "offline" ? (

@@ -6,7 +6,7 @@ it("reads a fresh VM snapshot and forwards cancellation", async () => {
   const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ available: false, reason: "No libvirt socket" }), { status: 200 }));
   const signal = new AbortController().signal;
   await expect(getVMs(signal, fetcher)).resolves.toMatchObject({ available: false });
-  expect(fetcher).toHaveBeenCalledWith("/api/v1/vms", { headers: { Accept: "application/json" }, cache: "no-store", signal });
+  expect(fetcher).toHaveBeenCalledWith("/api/v1/vms", { headers: new Headers({ Accept: "application/json" }), cache: "no-store", signal });
 });
 
 it("preserves the API message on request failure", async () => {

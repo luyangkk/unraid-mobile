@@ -1,20 +1,24 @@
 #!/bin/sh
 # Run only against a local Docker daemon / CI runner. No host mounts are used.
+set +x
 set -eu
 
 image_name="${1:?Usage: sh scripts/verify-image.sh IMAGE}"
 container_name="unraid-mobile-smoke-$$"
 fixture_container="$container_name-fixture"
+auth_container="$container_name-auth"
 
+# cleanup removes disposable containers without dumping authenticated logs.
 cleanup() {
   docker logs "$container_name" || true
   docker rm -f "$container_name" >/dev/null || true
   docker logs "$fixture_container" 2>/dev/null || true
   docker rm -f "$fixture_container" >/dev/null 2>&1 || true
+  docker rm -f "$auth_container" >/dev/null 2>&1 || true
 }
 
-docker run -d --name "$container_name" -p 127.0.0.1::8080 "$image_name" >/dev/null
 trap cleanup EXIT
+docker run -d --name "$container_name" -e APP_TOKEN= -p 127.0.0.1::8080 "$image_name" >/dev/null
 host_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}' "$container_name")"
 base_url="http://127.0.0.1:$host_port"
 
@@ -45,7 +49,7 @@ curl -fsS "$base_url/api/v1/vms" | python3 -c 'import json,sys; d=json.load(sys.
 curl -fsS "$base_url/api/v1/capabilities" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["vm"] is False and all(d["vmActions"][a] is False for a in ("start","stop","forceStop")), d'
 
 # Only synthetic fixtures are mounted, never the CI runner's live /proc or /sys.
-docker run -d --name "$fixture_container" -p 127.0.0.1::8080 \
+docker run -d --name "$fixture_container" -e APP_TOKEN= -p 127.0.0.1::8080 \
   --mount "type=bind,src=$(pwd)/testdata/host,dst=/host,readonly" "$image_name" >/dev/null
 fixture_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}' "$fixture_container")"
 fixture_url="http://127.0.0.1:$fixture_port"
@@ -61,4 +65,74 @@ stream="$(curl -fsSN --max-time 3 "$fixture_url/api/v1/events" || test "$?" = 28
 printf '%s' "$stream" | python3 -c 'import json,sys; text=sys.stdin.read(); samples=[json.loads(line[6:]) for line in text.splitlines() if line.startswith("data: ")]; assert "event: system.metrics" in text and len(samples)>=2 and all(d["available"] for d in samples) and samples[-1]["networkRXRate"]==0, text'
 curl -fsS "$fixture_url/api/v1/storage" | python3 -c 'import json,sys; text=sys.stdin.read(); d=json.loads(text); assert d["available"] and d["array"]["capacity"]["totalBytes"]==10240000 and d["array"]["diskCount"]==1 and d["pools"][0]["capacity"]["totalBytes"]==2048000 and d["pools"][0]["diskCount"]==2 and d["parity"]["state"]=="idle" and d["disks"][0]["powerState"]=="active" and "csrf_token" not in text and "fixture-must-never-be-exported" not in text, text'
 curl -fsS "$fixture_url/api/v1/capabilities" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["array"]["read"] and not d["array"]["start"] and not d["array"]["stop"] and d["storage"]["read"]'
-echo 'Image smoke checks passed: health, frontend, asset, capabilities, host fixtures, SSE, storage, missing Docker/VM'
+
+# Generate a disposable credential here, never use a repository or caller token.
+app_token="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+export APP_TOKEN="$app_token"
+docker run -d --name "$auth_container" --env APP_TOKEN -p 127.0.0.1::8080 \
+  --mount "type=bind,src=$(pwd)/testdata/host,dst=/host,readonly" "$image_name" >/dev/null
+unset APP_TOKEN
+auth_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}' "$auth_container")"
+auth_url="http://127.0.0.1:$auth_port"
+
+# auth_curl supplies the header through stdin, keeping credentials out of argv.
+auth_curl() {
+  printf 'header = "Authorization: Bearer %s"\n' "$app_token" |
+    curl --config - "$@"
+}
+
+attempt=0
+until [ "$(curl -s -o /dev/null -w '%{http_code}' "$auth_url/healthz" || true)" = 204 ]; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 30 ]; then
+    echo 'Authenticated container did not become healthy' >&2
+    exit 1
+  fi
+  sleep 1
+done
+curl -fsS "$auth_url/" -o /dev/null
+curl -fsS "$auth_url$asset_path" -o /dev/null
+
+for api_path in /api //api /api/v1/capabilities /api/v1/system /api/v1/storage \
+  /api/v1/docker /api/v1/vms /api/v1/events /api/v1/operations/missing \
+  /api/v1/unknown //api/v1/system /api/./v1/system /api/%2e%2e/healthz \
+  /outside/%2e%2e/api/v1/system /api%2fv1/system /%2fapi/v1/events; do
+  for method in GET POST OPTIONS; do
+    status="$(curl -sS --path-as-is -X "$method" -o /dev/null -w '%{http_code}' "$auth_url$api_path")"
+    if [ "$status" != 401 ]; then
+      echo 'Protected API did not reject an unauthenticated request' >&2
+      exit 1
+    fi
+  done
+done
+curl -sS -D - -o /dev/null "$auth_url/api/v1/capabilities" |
+  python3 -c 'import sys; from email.parser import Parser; status,headers=sys.stdin.read().split("\n",1); h=Parser().parsestr(headers); assert "401" in status and h["Cache-Control"]=="no-store" and h["WWW-Authenticate"]=="Bearer" and h["Content-Type"]=="application/json; charset=utf-8" and h["Location"] is None'
+curl -sS "$auth_url/api/v1/capabilities" |
+  python3 -c 'import json,sys; assert json.load(sys.stdin)=={"error":{"code":"UNAUTHORIZED","message":"Authentication required","retryable":False}}'
+wrong_status="$(curl -sS -H 'Authorization: Bearer disposable-invalid' -o /dev/null -w '%{http_code}' "$auth_url/api/v1/events")"
+if [ "$wrong_status" != 401 ]; then
+  echo 'Protected SSE did not reject an incorrect credential' >&2
+  exit 1
+fi
+auth_curl -fsS "$auth_url/api/v1/capabilities" |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["storage"]["read"] and not any(d["dockerActions"].values()) and not any(d["vmActions"].values()) and not d["array"]["start"] and not d["array"]["stop"] and not d["parity"]["start"] and not d["parity"]["cancel"]'
+auth_curl -fsS "$auth_url/api/v1/system" |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["available"] and d["hostname"]=="Fixture-Tower"'
+auth_curl -fsS "$auth_url/api/v1/storage" |
+  python3 -c 'import json,sys; assert json.load(sys.stdin)["available"]'
+auth_curl -fsS "$auth_url/api/v1/docker" |
+  python3 -c 'import json,sys; assert json.load(sys.stdin)["available"] is False'
+auth_curl -fsS "$auth_url/api/v1/vms" |
+  python3 -c 'import json,sys; assert json.load(sys.stdin)["available"] is False'
+# Suppress the expected curl timeout diagnostic and never print stream data.
+auth_stream="$(auth_curl -fsSN --max-time 3 "$auth_url/api/v1/events" 2>/dev/null || test "$?" = 28)"
+printf '%s' "$auth_stream" |
+  python3 -c 'import json,sys; text=sys.stdin.read(); samples=[json.loads(line[6:]) for line in text.splitlines() if line.startswith("data: ")]; assert "event: system.metrics" in text and len(samples)>=2 and all(d["available"] for d in samples)'
+auth_logs="$(docker logs "$auth_container" 2>&1)"
+if printf '%s' "$auth_logs" | grep -Fq "$app_token"; then
+  echo 'Authenticated container disclosed its credential in logs' >&2
+  exit 1
+fi
+printf '%s' "$auth_logs" | grep -q 'authentication enabled'
+unset app_token auth_logs auth_stream
+echo 'Image smoke checks passed: LAN/auth API, public health/assets, fixtures, SSE, disabled writes, missing Docker/VM'

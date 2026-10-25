@@ -10,8 +10,9 @@ are unknown, not zero. Storage shows Array/Parity state, per-filesystem capacity
 pools, disk temperature and physical-device I/O from Unraid metadata and procfs.
 Docker shows all containers, their actual states, CPU, working-set memory,
 uptime and network rates when the Engine socket is mounted. VM preview reads
-domain state and assigned CPU/RAM through the libvirt read-only socket. VM/Docker control and authentication are not implemented; write capabilities
-remain disabled.
+domain state and assigned CPU/RAM through the libvirt read-only socket. Optional
+`APP_TOKEN` authentication protects every API request. VM/Docker control is not
+implemented; write capabilities remain disabled.
 
 ## Install the prebuilt image on Unraid
 
@@ -42,14 +43,52 @@ In Unraid **Docker → Add Container**, use:
 | Path (optional, read-only) | `/var/run/docker.sock` on host → `/var/run/docker.sock` in container |
 | Path (optional, read-only) | `/var/run/libvirt` on host → `/var/run/libvirt` in container (requires `libvirt-sock-ro`) |
 | Variable (optional) | `VM_READ_ENABLED=false` (default; enable only for target-host validation) |
+| Variable (optional, masked) | `APP_TOKEN` (empty by default; enables Bearer authentication when nonempty) |
 | Variable (optional) | `SERVER_NAME=Tower` |
 
 Click Apply and open `http://10.0.0.66:18080`. Keep Privileged off; system metrics
 do not need Docker/libvirt sockets or the boot drive. Docker display needs only
 the optional Docker Engine socket, with Privileged still off. Enable Auto-Start on the
-Docker page if desired. Keep access on a controlled LAN; authentication is not
-implemented. Existing installations must add the read-only paths manually:
+Docker page if desired. Keep access on a controlled LAN. Existing installations
+must add the read-only paths and optional variables manually:
 updating an image does not update an already saved Unraid container template.
+
+### Optional API authentication
+
+Leave `APP_TOKEN` unset or empty for the existing LAN mode. Any nonempty value
+enables authentication, including whitespace-only values; credentials are never
+trimmed. Generate a strong random credential using Bearer-compatible characters
+(for example, a random hexadecimal string), not a repository example or a reused
+password. Add `APP_TOKEN` as an optional masked Variable in Unraid and apply the
+container configuration. Existing containers need this variable added manually,
+even after downloading a newer template or image.
+
+Authenticated clients must send `Authorization: Bearer <credential>` on every
+`/api` request, including REST, Operation queries and SSE. Send exactly one
+credential, never a cookie or URL/query token. Missing, malformed and incorrect
+credentials all return the same nonretryable `401 UNAUTHORIZED` with
+`Authentication required`, `WWW-Authenticate: Bearer` and `Cache-Control: no-store`.
+The health endpoint `/healthz`, page and static assets remain public. Enabling
+authentication does not enable any write capability.
+
+The page checks capabilities before starting any business requests. When
+authentication is required, enter APP_TOKEN in the password field and select
+Connect. Only a successfully validated credential is saved in this tab's
+`sessionStorage` under `unraid-mobile.app-token`; refreshing keeps the session.
+REST, polling and fetch-based SSE share the same Bearer header. Credentials
+never enter URLs, query keys or persistent business caches.
+
+Use the Clear token button to end the session. Any API or SSE `401` also clears
+the token, cancels requests, closes the stream and removes protected query data
+before showing the input form again. Closing the tab ends the stored session.
+
+The server does **not** provide TLS: Bearer authentication over HTTP does not
+encrypt credentials or metrics. Do not expose the HTTP port directly to the
+internet. Outside a controlled LAN, use HTTPS, Tailscale or WireGuard.
+Template masking only hides the form value;
+the container environment is still accessible to administrators. Never publish
+it in logs, screenshots or diagnostics. Startup logs report only LAN mode or
+authentication enabled.
 
 The server name is explicitly configurable because a bind-mounted procfs
 hostname can still describe the container's UTS namespace. Without a configured
@@ -177,8 +216,10 @@ only when the host exposes `libvirt-sock-ro`, together with `-e VM_READ_ENABLED=
 for target-host validation.
 
 Validate with `curl -i http://10.0.0.66:18080/healthz` (expected 204),
-`curl http://10.0.0.66:18080/api/v1/docker` (check `available` and diagnostics), and
+`curl http://10.0.0.66:18080/api/v1/docker` in LAN mode (check `available` and diagnostics), and
 `docker logs --tail 50 unraid-mobile`.
+When `APP_TOKEN` is enabled, API checks require the Bearer header; `/healthz`
+still returns 204 without it. Avoid verbose HTTP traces that disclose the header.
 
 ## Operation infrastructure
 
@@ -216,7 +257,9 @@ mutation/cancellation endpoints or UI controls are provided.
 Pushing to `main` or manually running the workflow on `main` runs Go tests,
 frontend tests/build, builds the Linux amd64 image, and starts a temporary
 unprivileged container to verify health, the embedded UI, its JS asset, missing
-mount handling, SSE and storage against synthetic host fixtures. Only
+mount handling, SSE and storage against synthetic host fixtures. It also verifies
+LAN mode and token-enabled API rejection/success using a disposable random
+credential generated at runtime, with public health and assets in both modes. Only
 then is that same image pushed to GHCR with `latest` and `sha-<full-commit-sha>`
 tags. Pull requests run the checks without publishing. Publishing uses the
 automatic `GITHUB_TOKEN`; no personal access token is needed.

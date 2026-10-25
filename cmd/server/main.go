@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path"
-	"strings"
 	"syscall"
 	"time"
 
@@ -62,14 +60,14 @@ func main() {
 	}()
 	operations := operation.NewStore(time.Now)
 	go operations.Run(ctx)
-	apiHandler := api.NewServer(api.Config{
-		VM:           vmMetrics,
-		Docker:       dockerMetrics,
-		System:       metrics,
-		Storage:      storageMetrics,
-		Capabilities: capability.Set{},
-		Operations:   operations,
-	})
+	apiConfig := apiConfigFromEnvironment()
+	apiConfig.VM = vmMetrics
+	apiConfig.Docker = dockerMetrics
+	apiConfig.System = metrics
+	apiConfig.Storage = storageMetrics
+	apiConfig.Capabilities = capability.Set{}
+	apiConfig.Operations = operations
+	apiHandler := api.NewServer(apiConfig)
 
 	staticFiles, err := fs.Sub(webFiles, "web")
 	if err != nil {
@@ -92,17 +90,32 @@ func main() {
 		defer cancel()
 		_ = server.Shutdown(shutdown)
 	}()
+	logAuthenticationMode(apiConfig.AppToken)
 	log.Printf("Unraid Mobile listening on %s", address)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
 }
 
+// apiConfigFromEnvironment preserves the optional credential exactly as configured.
+func apiConfigFromEnvironment() api.Config {
+	return api.Config{AppToken: os.Getenv("APP_TOKEN")}
+}
+
+// logAuthenticationMode reports only the mode, never credentials or their digest.
+func logAuthenticationMode(token string) {
+	if token == "" {
+		log.Print("Unraid Mobile LAN mode (authentication disabled)")
+		return
+	}
+	log.Print("Unraid Mobile authentication enabled")
+}
+
 // routeAPIRequests preserves original API paths for validation before the
 // static mux can redirect repeated separators or dot segments.
 func routeAPIRequests(apiHandler, fallback http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(path.Clean(r.URL.Path), "/api/") {
+		if api.IsAPIRequest(r) {
 			apiHandler.ServeHTTP(w, r)
 			return
 		}

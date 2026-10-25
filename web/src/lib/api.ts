@@ -1,3 +1,5 @@
+import { getAppToken, getAuthRevision, reportUnauthorized } from "./auth";
+
 export type Capabilities = {
   docker: boolean;
   dockerActions?: { start: boolean; stop: boolean; restart: boolean };
@@ -110,7 +112,7 @@ type ErrorPayload = {
   };
 };
 
-type Fetcher = (
+export type Fetcher = (
   input: RequestInfo | URL,
   init?: RequestInit,
 ) => Promise<Response>;
@@ -120,6 +122,7 @@ export class ApiError extends Error {
   readonly details?: string;
   readonly retryable: boolean;
 
+  // Preserve the API failure fields consumed by UI and retry policies.
   constructor(
     code: string,
     message: string,
@@ -134,31 +137,54 @@ export class ApiError extends Error {
   }
 }
 
-export async function getCapabilities(
+// Fetch a response using the shared credential session.
+export async function authenticatedFetch(
+  path: string,
+  init: RequestInit,
   fetcher: Fetcher = fetch,
-): Promise<Capabilities> {
-  return request<Capabilities>("/api/v1/capabilities", fetcher, {
-    headers: { Accept: "application/json" },
-  });
+): Promise<Response> {
+  const revision = getAuthRevision();
+  const token = getAppToken();
+  const headers = new Headers(init.headers);
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  if (token !== null) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetcher(path, { ...init, headers });
+  if (response.status === 401) {
+    void response.body?.cancel().catch(() => {});
+    reportUnauthorized(revision);
+    throw new ApiError("UNAUTHORIZED", "Authentication required", false);
+  }
+  return response;
 }
 
-export async function getSystem(
-  signal?: AbortSignal,
+// Validate capabilities with the same uncached, cancellable transport as reads.
+export async function getCapabilities(
   fetcher: Fetcher = fetch,
-): Promise<SystemSnapshot> {
-  return request<SystemSnapshot>("/api/v1/system", fetcher, {
-    headers: { Accept: "application/json" },
+  signal?: AbortSignal,
+): Promise<Capabilities> {
+  return request<Capabilities>("/api/v1/capabilities", fetcher, {
     cache: "no-store",
     signal,
   });
 }
 
+// Load the latest system sample without retaining an offline snapshot.
+export async function getSystem(
+  signal?: AbortSignal,
+  fetcher: Fetcher = fetch,
+): Promise<SystemSnapshot> {
+  return request<SystemSnapshot>("/api/v1/system", fetcher, {
+    cache: "no-store",
+    signal,
+  });
+}
+
+// Load the latest storage sample with caller cancellation.
 export async function getStorage(
   signal?: AbortSignal,
   fetcher: Fetcher = fetch,
 ): Promise<StorageSnapshot> {
   return request<StorageSnapshot>("/api/v1/storage", fetcher, {
-    headers: { Accept: "application/json" },
     cache: "no-store",
     signal,
   });
@@ -170,29 +196,29 @@ export async function getDocker(
   fetcher: Fetcher = fetch,
 ): Promise<DockerSnapshot> {
   return request<DockerSnapshot>("/api/v1/docker", fetcher, {
-    headers: { Accept: "application/json" },
     cache: "no-store",
     signal,
   });
 }
 
+// Load the latest VM sample with caller cancellation.
 export async function getVMs(
   signal?: AbortSignal,
   fetcher: Fetcher = fetch,
 ): Promise<VMSnapshot> {
   return request<VMSnapshot>("/api/v1/vms", fetcher, {
-    headers: { Accept: "application/json" },
     cache: "no-store",
     signal,
   });
 }
 
+// Decode JSON reads after centralized authentication and preserve non-401 errors.
 async function request<T>(
   path: string,
   fetcher: Fetcher,
   init: RequestInit,
 ): Promise<T> {
-  const response = await fetcher(path, init);
+  const response = await authenticatedFetch(path, init, fetcher);
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as ErrorPayload;

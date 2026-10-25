@@ -16,6 +16,7 @@ import (
 )
 
 type Config struct {
+	AppToken        string
 	VM              *vm.Service
 	Docker          *docker.Service
 	Storage         *storage.Service
@@ -80,13 +81,13 @@ func NewServer(config Config) http.Handler {
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "ROUTE_NOT_FOUND", "Route not found", false)
 	})
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return authenticateAPI(config.AppToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isOperationPath(r.URL.Path) {
 			handleOperationQuery(w, r, config.Operations)
 			return
 		}
 		mux.ServeHTTP(w, r)
-	})
+	}))
 }
 
 // handleDockerAction validates resource and explicit write flags before acceptance.

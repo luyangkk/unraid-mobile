@@ -9,7 +9,7 @@ it("loads a fresh Docker snapshot and forwards cancellation", async () => {
   const signal = new AbortController().signal;
   await expect(getDocker(signal, fetcher)).resolves.toMatchObject({ available: false });
   expect(fetcher).toHaveBeenCalledWith("/api/v1/docker", {
-    headers: { Accept: "application/json" },
+    headers: new Headers({ Accept: "application/json" }),
     cache: "no-store",
     signal,
   });

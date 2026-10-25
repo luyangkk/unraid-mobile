@@ -38,7 +38,7 @@ assert b" 200 " in status and headers["Content-Type"]=="application/manifest+jso
 manifest=json.loads(body)
 assert manifest["name"]=="Unraid Mobile" and manifest["short_name"], manifest
 assert manifest["start_url"]=="/" and manifest["scope"]=="/" and manifest["display"]=="standalone", manifest
-assert manifest["theme_color"]=="#1D1B1B" and manifest["background_color"]=="#1D1B1B", manifest
+assert manifest["theme_color"]=="#171717" and manifest["background_color"]=="#171717", manifest
 icons={icon["src"]:icon for icon in manifest["icons"]}
 for source,size,purpose in (
     ("/icons/icon-192.png","192x192","any"),

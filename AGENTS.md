@@ -39,7 +39,7 @@
 - System 复用 `lib/stream.ts`，首次、重试和后台恢复均先取快照再开单一 fetch SSE；后台中止连接，卸载释放 reader 和 AbortController，避免旧结果回写。Storage / Docker 每两秒、VM 每三秒轮询，仅使用数据的当前路由挂载查询，后台暂停，前台恢复先刷新。
 - 首次无数据显示加载占位；刷新/断线保留已有样本并注明旧数据和采样时间。区分连接失败、采集不可用和空配置，保留不可用模块及原因，不伪造健康分、进度或成功结果。
 - 格式化复用 `lib/system.ts`，统一 1024 进制单位和 `/s`；未知值显示 `—` 或 unavailable。CPU 趋势仅在浏览器内存保留最多 60 个去重样本，用 SVG 绘制，不作为历史监控。
-- 依据 2026-10-25 用户配色要求，使用官方 WebGUI Black / White 中性表面、Unraid 橙色强调、独立状态色；官方色值和可读性派生色在 `styles.css` 注释中区分。按用途使用语义 token，不覆盖 Tailwind 原始调色板；品牌选中态不代表警告，图表/容量指标颜色不代表健康状态。保持移动单列、`max-w-md`、320px 最小视口和上下安全区。复用系统字体、等宽数字及现有圆角，避免数值更新造成布局跳动。
+- 依据 2026-10-25 用户最新要求，尽量复刻 `unraid.net` 官网源码风格，可参考 `10.0.0.66` 的 7.1.0 WebGUI。Dark 使用黑灰表面，Light 使用暖米色页面和白色卡片；共享红橙渐变，主按钮默认白字、hover/focus 黑字，次按钮使用胶囊渐变描边并在 hover 时填满渐变；精细指针 hover 按官网 4 秒周期流动，触屏和 reduced-motion 保持静态。用户已明确取消此前的数值对比度门槛，不为满足 4.5:1 或 3:1 改写官网色值；仍保留可读标签、键盘焦点和禁用反馈。官网分区适配为本项目深浅主题，不宣称官网提供主题切换；官方色值和移动端适配在 `styles.css` 注释中区分。按用途使用语义 token，不覆盖 Tailwind 原始调色板；品牌选中态不代表警告，独立状态色、图表/容量指标颜色不代表健康状态。保持移动单列、`max-w-md`、320px 最小视口和上下安全区。复用系统字体、等宽数字，避免数值更新造成布局跳动。
 - 外观默认 Dark，`localStorage` 的 `unraid-mobile.theme` 仅保存 `dark|light|system`；System 跟随设备，异常存储回退 Dark，跨标签页同步。head 脚本尽早应用外观，运行时由根元素属性和 CSS 变量更新，包括认证页、Portal 和 PWA 提示；不重建 Router、QueryClient、SessionGate、AppShell 或 SSE。实际颜色变化前取消 Tab 视觉转场，已提交导航继续。外观 AppSheet 选择后保持打开和焦点。
 - System 指标集中在一个面板，Storage 按 Array/Parity/Pools/Disks 分组，Disks 与诊断用 `details/summary` 折叠；磁盘行显示摘要，点击后用 AppSheet 展示详情。Button 保留至少 44px 高度、焦点和禁用反馈；图标按钮有可读标签，状态含义不能只靠颜色。
 - 业务组件只使用 `components/app/AppSheet`，不直接依赖 Radix Dialog；动画、手势阈值和减少动画偏好集中在 `lib/motion.ts`。AppSheet 处理模态焦点、关闭后的焦点返回、页面滚动锁定、内部滚动和底部安全区；纵向拖动仅由把手开始，面板支持以水平位移为主的右划关闭，忽略交互控件上的起始手势，保留内容纵向滚动和双指缩放；reduced-motion 禁用手势关闭和位移动画。

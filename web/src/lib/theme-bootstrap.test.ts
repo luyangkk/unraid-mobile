@@ -30,7 +30,7 @@ describe("appearance before React", () => {
     expect(doc.documentElement.dataset.theme).toBe(resolved);
     expect(doc.documentElement.style.colorScheme).toBe(resolved);
     expect(doc.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content)
-      .toBe(resolved === "dark" ? "#1D1B1B" : "#F2F2F2");
+      .toBe(resolved === "dark" ? "#171717" : "#F1ECE3");
   });
 
   it("falls back to Dark when access to localStorage throws", () => {
@@ -40,8 +40,8 @@ describe("appearance before React", () => {
 
   it("uses the default dark launch color in the static manifest and metadata", () => {
     const manifest = JSON.parse(readFileSync(resolve("public/manifest.webmanifest"), "utf8"));
-    expect(manifest.theme_color).toBe("#1D1B1B");
-    expect(manifest.background_color).toBe("#1D1B1B");
-    expect(html).toContain('name="theme-color" content="#1D1B1B"');
+    expect(manifest.theme_color).toBe("#171717");
+    expect(manifest.background_color).toBe("#171717");
+    expect(html).toContain('name="theme-color" content="#171717"');
   });
 });

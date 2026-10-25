@@ -11,9 +11,9 @@ export function BottomNavigation({ navigationRef }: { navigationRef?: RefObject<
       {primaryNavigation.map(({ to, label, icon: Icon }) => (
         <Link key={to} to={to} activeOptions={{ exact: true }} preload={false}
           style={{ transitionDuration: `${tabMotion.activeColor}s` }}
-          className="flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 border-t-2 px-1 text-xs transition-colors motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-focus-ring"
+          className="tab-link relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 border-t-2 px-1 text-xs transition-colors motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-focus-ring"
           inactiveProps={{ className: "border-transparent text-text-muted" }}
-          activeProps={{ "aria-current": "page", className: "border-brand-text bg-surface font-semibold text-brand-text" }}>
+          activeProps={{ "aria-current": "page", className: "border-transparent bg-surface font-semibold text-brand-text" }}>
           <Icon className="size-5" aria-hidden="true" />
           <span>{label}</span>
         </Link>

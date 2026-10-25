@@ -19,7 +19,7 @@ export function AppHeader({ snapshot, connection, refresh, logout }: {
   return (
     <header className="mb-7 flex items-start justify-between gap-2">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-text-muted">Unraid Mobile</p>
+        <p className="brand-title w-fit text-sm font-semibold">Unraid Mobile</p>
         <h1 className="mt-1 break-words text-3xl font-bold tracking-tight">{snapshot?.hostname || "Unraid"}</h1>
         <p className={`mt-2 flex items-center gap-2 text-sm ${live ? "text-success" : "text-warning"}`} role="status">
           <span className={`size-2 shrink-0 rounded-full ${live ? "bg-success" : "bg-warning"}`} aria-hidden="true" />

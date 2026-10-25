@@ -1,5 +1,7 @@
 # Official Unraid Themes Implementation Plan
 
+> Historical plan. Website fidelity and removal of numeric contrast gates now supersede its palette requirements; see [the current plan](2026-10-25-website-themes.md).
+
 > **For agentic workers:** Use executing-plans for theme behavior; dispatching-parallel-agents for the independent color migration.
 
 **Goal:** Implement Dark / Light / System with official neutral surfaces and Unraid orange emphasis.

@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import { buttonVariants } from "../components/ui/button";
 
 type Palette = Record<string, string>;
-type RGB = [number, number, number];
 const stylesheet = parse(readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8"));
 const staleSelector = ":where([data-tab-content], [data-sheet-body]) .opacity-60";
 const semanticTokens = [
@@ -40,45 +39,6 @@ function value(tokens: Palette, name: string): string {
   return alias ? value(tokens, alias[1]) : color;
 }
 
-// rgb converts a six-digit sRGB color to channels for alpha compositing.
-function rgb(color: string): RGB {
-  expect(color).toMatch(/^#[\da-f]{6}$/i);
-  return [1, 3, 5].map((offset) => parseInt(color.slice(offset, offset + 2), 16)) as RGB;
-}
-
-// composite models browser alpha blending before WCAG linearization.
-function composite(front: RGB, back: RGB, alpha: number): RGB {
-  return front.map((channel, index) => channel * alpha + back[index] * (1 - alpha)) as RGB;
-}
-
-// luminance applies the WCAG sRGB transfer function to final rendered channels.
-function luminance(color: RGB): number {
-  const linear = color.map((channel) => {
-    const normalized = channel / 255;
-    return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
-  });
-  return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
-}
-
-// contrast compares foreground and the final opaque background, not raw tint values.
-function contrast(front: RGB, back: RGB): number {
-  const a = luminance(front);
-  const b = luminance(back);
-  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-}
-
-// backgrounds includes actual row alpha, warning tint and selected/hover surfaces.
-function backgrounds(tokens: Palette): RGB[] {
-  const colors = ["background", "surface", "surface-muted", "surface-hover", "brand-selected"].map((name) => rgb(value(tokens, name)));
-  colors.push(composite(rgb(value(tokens, "surface-muted")), rgb(value(tokens, "surface")), 0.6));
-  for (const name of ["background", "surface", "surface-muted"]) {
-    for (const tint of ["status-tint", "warning"]) {
-      colors.push(composite(rgb(value(tokens, tint)), rgb(value(tokens, name)), 0.05));
-    }
-  }
-  return colors;
-}
-
 // presentationFiles inventories only the existing presentation ownership boundary.
 function presentationFiles(directory: URL): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -91,18 +51,36 @@ function presentationFiles(directory: URL): string[] {
 describe("official Unraid semantic palette", () => {
   it.each([
     ["dark", {
-      background: "#1D1B1B", surface: "#262626", "surface-muted": "#303030",
-      foreground: "#F2F2F2", brand: "#FF8C2F", deeporange: "#F15A2C", "brand-text": "#FF8C2F",
+      background: "#171717", surface: "#2B2A29", "surface-muted": "#333231",
+      foreground: "#FFFFFF", brand: "#FF8C2F", deeporange: "#F15A2C", "brand-text": "#FF8C2F",
+      "brand-red": "#E22828",
     }],
     ["light", {
-      background: "#F2F2F2", surface: "#FFFFFF", "surface-muted": "#F7F9F9",
-      foreground: "#1D1B1B", brand: "#FF8C2F", deeporange: "#F15A2C", "brand-text": "#B83D14",
+      background: "#F1ECE3", surface: "#FFFFFF", "surface-muted": "#EEE4D2",
+      foreground: "#171717", brand: "#FF8C2F", deeporange: "#F15A2C", "brand-text": "#F15A2C",
+      "brand-red": "#E22828",
     }],
-  ] as const)("keeps the required %s bases without substituting contrast-derived colors", (theme, expected) => {
+  ] as const)("keeps the website's %s bases without substituting derived colors", (theme, expected) => {
     const tokens = palette(theme);
     for (const [name, color] of Object.entries(expected)) expect(value(tokens, name).toUpperCase()).toBe(color);
     expect(declarations(":root")["color-scheme"]).toBe("dark");
     expect(declarations(':root[data-theme="light"]')["color-scheme"]).toBe("light");
+  });
+
+  it.each(["dark", "light"] as const)("matches the website's %s gradient button colors and separate variants", (theme) => {
+    const tokens = palette(theme);
+    expect(value(tokens, "brand-foreground")).toBe("#FFFFFF");
+    expect(value(tokens, "brand-interactive-foreground")).toBe("#171717");
+    expect(tokens["--brand-gradient"]).toBe("linear-gradient(90deg, var(--brand-red), var(--brand))");
+    expect(tokens["--brand-gradient-flow"]).toBe("linear-gradient(90deg, var(--brand-red), var(--brand), var(--brand-red), var(--brand))");
+    const primary = buttonVariants({ variant: "primary" }).split(" ");
+    const secondary = buttonVariants({ variant: "secondary" }).split(" ");
+    expect(primary).toContain("button-primary");
+    expect(primary).toContain("rounded-sm");
+    expect(primary).not.toContain("hover:bg-brand-hover");
+    expect(secondary).toContain("button-secondary");
+    expect(secondary).toContain("rounded-full");
+    expect(secondary).toContain("border-transparent");
   });
 
   it("exposes each semantic Tailwind v4 utility as a locally resolved CSS variable", async () => {
@@ -138,31 +116,11 @@ describe("official Unraid semantic palette", () => {
     expect(alpha).toBe("color-mix(in oklab, var(--warning) 5%, transparent)");
   });
 
-  it.each(["dark", "light"] as const)("keeps small %s text readable on opaque and actual alpha surfaces", (theme) => {
-    const tokens = palette(theme);
-    for (const name of ["foreground", "text-muted", "brand-text", "success", "warning", "danger", "info"]) {
-      for (const back of backgrounds(tokens)) {
-        expect(contrast(rgb(value(tokens, name)), back), `${theme} ${name} on ${back}`).toBeGreaterThanOrEqual(4.5);
-      }
-    }
-    for (const background of ["brand", "brand-hover"]) {
-      expect(contrast(rgb(value(tokens, "brand-foreground")), rgb(value(tokens, background)))).toBeGreaterThanOrEqual(4.5);
-    }
-  });
-
-  it.each(["dark", "light"] as const)("distinguishes %s control boundaries and offset focus rings", (theme) => {
-    const tokens = palette(theme);
-    for (const back of backgrounds(tokens)) {
-      expect(contrast(rgb(value(tokens, "control-border")), back)).toBeGreaterThanOrEqual(3);
-      expect(contrast(rgb(value(tokens, "focus-ring")), back)).toBeGreaterThanOrEqual(3);
-    }
-    for (const back of ["brand", "brand-hover"]) {
-      expect(contrast(rgb(value(tokens, "brand-foreground")), rgb(value(tokens, back)))).toBeGreaterThanOrEqual(3);
-    }
+  it("retains keyboard focus, disabled feedback and minimum touch height", () => {
     for (const variant of ["primary", "secondary"] as const) {
       const classes = buttonVariants({ variant }).split(" ");
       expect(classes).toContain("border");
-      expect(classes).toContain(variant === "primary" ? "border-brand-foreground" : "border-control-border");
+      expect(classes).toContain("min-h-11");
       expect(classes).toContain("focus-visible:ring-focus-ring");
       expect(classes).toContain("focus-visible:ring-offset-2");
       expect(classes).toContain("focus-visible:ring-offset-surface");
@@ -177,9 +135,8 @@ describe("official Unraid semantic palette", () => {
       const color = value(tokens, name);
       expect(color).not.toBe(value(tokens, "brand"));
       for (const status of ["success", "warning", "danger", "info"]) expect(color).not.toBe(value(tokens, status));
-      for (const back of backgrounds(tokens)) expect(contrast(rgb(color), back)).toBeGreaterThanOrEqual(3);
     }
-    expect(contrast(rgb(value(tokens, "progress-fill")), rgb(value(tokens, "progress-track")))).toBeGreaterThanOrEqual(3);
+    expect(value(tokens, "progress-fill")).not.toBe(value(tokens, "progress-track"));
   });
 
   it.each(["dark", "light"] as const)("retains the stale marker without fading nested %s text, SVG or statuses", (theme) => {
@@ -192,9 +149,6 @@ describe("official Unraid semantic palette", () => {
     expect(stale["--text-muted"]).toBe("var(--stale-text-muted)");
     const scoped = { ...tokens, ...stale };
     expect(value(scoped, "foreground")).not.toBe(value(tokens, "foreground"));
-    for (const name of ["foreground", "text-muted", "brand-text", "success", "warning", "danger", "info"]) {
-      for (const back of backgrounds(tokens)) expect(contrast(rgb(value(scoped, name)), back)).toBeGreaterThanOrEqual(4.5);
-    }
     for (const name of ["chart-line", "progress-fill", "success", "warning"]) {
       expect(value(scoped, name)).toBe(value(tokens, name));
     }

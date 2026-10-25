@@ -190,9 +190,9 @@ function instrument({ nativeMissing, freeze }) {
 // createPage blocks external traffic and routes REST into mutable synthetic snapshots.
 async function createPage({ path = "/", nativeMissing = false, freeze = false, delayed = false,
   longStorage = false, viewport = { width: 390, height: 844 }, theme = process.env.CHECK_THEME || "dark",
-  scenario = "ready" } = {}) {
+  scenario = "ready", mobile = true } = {}) {
   assert.ok(["dark", "light", "system"].includes(theme), "CHECK_THEME must be dark, light or system");
-  const context = await browser.newContext({ viewport, hasTouch: true, isMobile: true, deviceScaleFactor: 1,
+  const context = await browser.newContext({ viewport, hasTouch: mobile, isMobile: mobile, deviceScaleFactor: 1,
     serviceWorkers: "block", reducedMotion: "no-preference" });
   await context.addInitScript((preference) => localStorage.setItem("unraid-mobile.theme", preference), theme);
   const page = await context.newPage();
@@ -522,6 +522,102 @@ try {
   results.versions.playwright = JSON.parse(await readFile(resolve(dirname(modulePath), "package.json"), "utf8")).version;
   results.build = { indexHash: createHash("sha256").update(await readFile(`${web}dist/index.html`)).digest("hex") };
 
+  await runCheck("website-buttons", "Website gradient moves on hover and stays static for focus, touch and reduced motion", async () => {
+    for (const theme of ["dark", "light"]) {
+      const environment = await createPage({ theme, scenario: "auth", mobile: false });
+      const { page } = environment;
+      const primary = page.getByRole("button", { name: "Connect", exact: true });
+      const input = page.getByLabel("APP_TOKEN", { exact: true });
+      // paint reads the real compiled CSS on controls and their masked border.
+      async function paint(locator, pseudo = null) {
+        return locator.evaluate((node, pseudo) => {
+          const style = getComputedStyle(node, pseudo);
+          return { image: style.backgroundImage, position: style.backgroundPosition,
+            size: style.backgroundSize, animation: style.animationName, duration: style.animationDuration,
+            timing: style.animationTimingFunction, iterations: style.animationIterationCount,
+            color: style.color, opacity: style.opacity, border: style.borderColor, shadow: style.boxShadow,
+            height: node.getBoundingClientRect().height, focused: node.matches(":focus-visible") };
+        }, pseudo);
+      }
+      await verify(`${theme} disabled primary is neutral without gradient`, await paint(primary),
+        (data) => data.image === "none" && data.animation === "none" && data.height >= 44);
+      await input.fill("synthetic-button-check");
+      await page.waitForFunction(() => getComputedStyle(document.querySelector(".button-primary")).color === "rgb(255, 255, 255)");
+      await verify(`${theme} enabled primary has website red/orange fill and white resting text`, await paint(primary),
+        (data) => data.image.includes("rgb(226, 40, 40)") && data.image.includes("rgb(255, 140, 47)")
+          && data.color === "rgb(255, 255, 255)" && data.animation === "none");
+      await primary.hover();
+      const first = await paint(primary);
+      await page.waitForFunction(() => {
+        const button = document.querySelector(".button-primary");
+        const animation = button.getAnimations().find((animation) => animation.animationName === "brand-flow");
+        return animation?.currentTime > 450;
+      });
+      await verify(`${theme} hover advances website 4s linear background`, { first, next: await paint(primary) },
+        (data) => data.first.animation === "brand-flow" && data.first.duration === "4s"
+          && data.first.timing === "linear" && data.first.iterations === "infinite"
+          && data.first.size === "300% 100%" && data.first.position !== data.next.position
+          && data.next.color === "rgb(23, 23, 23)");
+      await screenshot(environment, `${theme}-primary-flow`);
+      await page.mouse.move(0, 0);
+      await input.focus();
+      await page.keyboard.press("Tab");
+      await verify(`${theme} keyboard primary focus is visible without continuous motion`, await paint(primary),
+        (data) => data.focused && data.shadow !== "none" && data.animation === "none");
+      await primary.hover();
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await verify(`${theme} reduced motion stops active primary hover`, await paint(primary),
+        (data) => data.animation === "none" && data.image.includes("linear-gradient"));
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await input.fill("");
+      await verify(`${theme} becoming disabled removes the running fill`, await paint(primary),
+        (data) => data.animation === "none" && data.image === "none");
+
+      const home = await createPage({ theme, mobile: false });
+      const secondary = home.page.getByRole("button", { name: "Appearance", exact: true });
+      await verify(`${theme} secondary resting border is not moving`, await paint(secondary, "::before"),
+        (data) => data.opacity === "1" && data.image.includes("rgb(226, 40, 40)") && data.animation === "none");
+      await verify(`${theme} secondary resting fill is transparent`, await paint(secondary, "::after"),
+        (data) => data.opacity === "0" && data.animation === "none");
+      // paint belongs to the same Locator API and can inspect either isolated page.
+      const outerBorder = (await paint(secondary)).border;
+      await secondary.hover();
+      await home.page.waitForFunction(() => {
+        const button = document.querySelector('[aria-label="Appearance"]');
+        return document.getAnimations().some((animation) => animation.effect?.target === button &&
+          animation.animationName === "brand-flow" && animation.currentTime > 450);
+      });
+      await verify(`${theme} secondary fades in the flowing website fill`,
+        { inner: await paint(secondary, "::after"), outer: await paint(secondary) },
+        (data) => data.inner.animation === "brand-flow" && data.inner.duration === "4s"
+          && data.inner.opacity === "1" && data.outer.animation === "none" && data.outer.border === outerBorder
+          && data.outer.color === "rgb(23, 23, 23)");
+      await screenshot(home, `${theme}-secondary-flow`);
+      await home.page.mouse.move(0, 0);
+      await home.page.keyboard.press("Tab");
+      await verify(`${theme} secondary keyboard focus keeps a static gradient and ring`,
+        { inner: await paint(secondary, "::after"), outer: await paint(secondary) },
+        (data) => data.outer.focused && data.outer.shadow !== "none"
+          && data.inner.opacity === "1" && data.inner.animation === "none");
+      await secondary.hover();
+      await home.page.emulateMedia({ reducedMotion: "reduce" });
+      await verify(`${theme} reduced motion disables the secondary flow`, await paint(secondary, "::after"),
+        (data) => data.animation === "none" && data.opacity === "1");
+      await verify(`${theme} selected Tab has a static website gradient`,
+        await paint(home.page.locator('nav a[aria-current="page"]'), "::before"),
+        (data) => data.image.includes("rgb(226, 40, 40)") && data.animation === "none");
+
+      const touch = await createPage({ theme, scenario: "auth" });
+      await touch.page.getByLabel("APP_TOKEN", { exact: true }).fill("synthetic-touch-check");
+      const touchButton = touch.page.getByRole("button", { name: "Connect", exact: true });
+      const box = await touchButton.boundingBox();
+      await touch.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await verify(`${theme} coarse touch context does not start hover flow`,
+        { style: await paint(touchButton), coarse: await touch.page.evaluate(() => matchMedia("(pointer: coarse)").matches) },
+        (data) => data.coarse && data.style.animation === "none" && data.style.image.includes("linear-gradient"));
+    }
+  });
+
   await runCheck("appearance", "Both palettes preserve pages, Portal focus and 320px header controls", async () => {
     for (const theme of ["dark", "light"]) {
       const environment = await createPage({ theme, viewport: { width: 320, height: 740 } });
@@ -538,9 +634,9 @@ try {
         }));
         await verify(`${theme} ${path} resolves official page colors without overflow`, rendered,
           (data) => data.theme === theme && !data.overflow
-            && data.background === (theme === "dark" ? "rgb(29, 27, 27)" : "rgb(242, 242, 242)")
-            && data.foreground === (theme === "dark" ? "rgb(242, 242, 242)" : "rgb(29, 27, 27)")
-            && data.chrome === (theme === "dark" ? "#1D1B1B" : "#F2F2F2"));
+            && data.background === (theme === "dark" ? "rgb(23, 23, 23)" : "rgb(241, 236, 227)")
+            && data.foreground === (theme === "dark" ? "rgb(255, 255, 255)" : "rgb(23, 23, 23)")
+            && data.chrome === (theme === "dark" ? "#171717" : "#F1ECE3"));
         await screenshot(environment, `${theme}-${path.slice(1) || "home"}-page`);
       }
       await page.getByRole("button", { name: "Appearance", exact: true }).click();
@@ -559,7 +655,7 @@ try {
             && animation.playState !== "finished").map((animation) => animation.transitionProperty),
           navigation: getComputedStyle(document.querySelector('nav a[aria-current="page"]')).color,
         })), (data) => data.colorTransitions.length === 0
-          && data.navigation === (next === "dark" ? "rgb(255, 140, 47)" : "rgb(184, 61, 20)"));
+          && data.navigation === (next === "dark" ? "rgb(255, 140, 47)" : "rgb(241, 90, 44)"));
       await verify(`${theme} selection keeps the Portal and focused native radio`, await page.evaluate((original) => ({
         same: original === document.querySelector('[role="dialog"]'),
         theme: document.documentElement.dataset.theme,
@@ -609,7 +705,7 @@ try {
         await page.getByRole("dialog").evaluate((node) => ({
           background: getComputedStyle(node).backgroundColor,
           text: node.textContent,
-        })), (data) => data.background === (theme === "dark" ? "rgb(38, 38, 38)" : "rgb(255, 255, 255)")
+        })), (data) => data.background === (theme === "dark" ? "rgb(43, 42, 41)" : "rgb(255, 255, 255)")
           && data.text.includes("Active") && data.text.includes("35"));
       await page.waitForFunction(() => {
         const rect = document.querySelector('[role="dialog"]')?.getBoundingClientRect();
@@ -634,9 +730,9 @@ try {
         await verify(`${theme} ${scenario} paints before protected consumers mount`, {
           ...state, business: environment.requests.filter(({ path }) => path.startsWith("/api/")).map(({ path }) => path),
         }, (data) => data.theme === theme && !data.routerMounted && !data.overflow
-          && data.background === (theme === "dark" ? "rgb(29, 27, 27)" : "rgb(242, 242, 242)")
-          && data.surface === (theme === "dark" ? "rgb(38, 38, 38)" : "rgb(255, 255, 255)")
-          && data.chrome === (theme === "dark" ? "#1D1B1B" : "#F2F2F2")
+          && data.background === (theme === "dark" ? "rgb(23, 23, 23)" : "rgb(241, 236, 227)")
+          && data.surface === (theme === "dark" ? "rgb(43, 42, 41)" : "rgb(255, 255, 255)")
+          && data.chrome === (theme === "dark" ? "#171717" : "#F1ECE3")
           && data.business.length === 1 && data.business[0] === "/api/v1/capabilities");
         await screenshot(environment, `${theme}-${scenario}`);
       }
@@ -698,7 +794,7 @@ try {
             }),
             overflow: document.documentElement.scrollWidth > innerWidth,
           })), (data) => data.theme === theme && !data.overflow
-            && data.background === (theme === "dark" ? "rgb(38, 38, 38)" : "rgb(255, 255, 255)")
+            && data.background === (theme === "dark" ? "rgb(43, 42, 41)" : "rgb(255, 255, 255)")
             && data.buttons.every((button) => button.width >= 44 && button.height >= 44));
         await screenshot(environment, `${theme}-waiting-update`);
         await page.getByRole("button", { name: "Dismiss update" }).click();
@@ -731,7 +827,7 @@ try {
             cached: (await Promise.all((await caches.keys()).map(async (key) =>
               (await (await caches.open(key)).keys()).map((request) => new URL(request.url).pathname)))).flat(),
           })), (data) => data.theme === theme && !data.navigation
-            && data.background === (theme === "dark" ? "rgb(29, 27, 27)" : "rgb(242, 242, 242)")
+            && data.background === (theme === "dark" ? "rgb(23, 23, 23)" : "rgb(241, 236, 227)")
             && data.cached.length > 0 && !data.cached.some((path) => path.startsWith("/api/") || path === "/healthz"));
         await screenshot({ page: offline }, `${theme}-offline-cold-storage`);
       }

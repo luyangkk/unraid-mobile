@@ -32,12 +32,12 @@ describe("application appearance", () => {
     const app = await mountApp();
     try {
       expect(document.documentElement.dataset.theme).toBe("dark");
-      expect(meta.content).toBe("#1D1B1B");
+      expect(meta.content).toBe("#171717");
       await openAppearance(app.host);
       expect(document.querySelector<HTMLInputElement>('input[value="dark"]')?.checked).toBe(true);
       await choose("light");
       expect(document.documentElement.dataset.theme).toBe("light");
-      expect(meta.content).toBe("#F2F2F2");
+      expect(meta.content).toBe("#F1ECE3");
       expect(localStorage.getItem(key)).toBe("light");
     } finally { await app.dispose(); }
   });

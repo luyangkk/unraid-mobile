@@ -23,7 +23,7 @@ function applyTheme() {
   root.dataset.theme = resolved;
   root.style.colorScheme = resolved;
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-    ?.setAttribute("content", resolved === "dark" ? "#1D1B1B" : "#F2F2F2");
+    ?.setAttribute("content", resolved === "dark" ? "#171717" : "#F1ECE3");
   // Resolve colors before paint: interpolating both text and surfaces can lose contrast.
   if (paletteChanged && typeof CSSTransition !== "undefined") {
     for (const animation of document.getAnimations?.() ?? []) {

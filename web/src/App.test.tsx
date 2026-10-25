@@ -4,6 +4,23 @@ import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { dockerSample, mountApp, settle, storageSample, systemSample } from "./test/app-fixtures";
 
+// runningDetails finds the visible Docker group through its summary label.
+function runningDetails(host: HTMLElement): HTMLDetailsElement {
+  const summary = [...host.querySelectorAll("summary")].find((node) => node.textContent === "Running (1)");
+  if (!summary) throw new Error("Missing Docker Running group");
+  return summary.parentElement as HTMLDetailsElement;
+}
+
+// toggleRunning delivers the native details event to the real panel.
+async function toggleRunning(host: HTMLElement, open: boolean) {
+  await act(async () => {
+    const details = runningDetails(host);
+    details.open = open;
+    details.dispatchEvent(new Event("toggle"));
+  });
+  await settle();
+}
+
 describe("primary pages", () => {
   it.each([
     ["/", "Home"], ["/docker", "Docker"], ["/vm", "VM"], ["/storage", "Storage"],
@@ -40,6 +57,30 @@ describe("primary pages", () => {
         expect(app.host.textContent).not.toContain(omitted);
       for (const path of ["/docker", "/vm", "/storage"])
         expect(app.host.querySelector(`main a[href="${path}"]`)).not.toBeNull();
+    } finally { await app.dispose(); }
+  });
+
+  it.each([
+    ["/", "Home", "Docker"],
+    ["/docker", "Docker", "Home"],
+  ])("keeps the Running fold independent when leaving %s", async (path, first, second) => {
+    const app = await mountApp(path);
+    try {
+      expect(runningDetails(app.host).open).toBe(true);
+      await toggleRunning(app.host, false);
+      await app.navigate(second);
+      expect(runningDetails(app.host).open).toBe(true);
+
+      await toggleRunning(app.host, false);
+      await app.navigate(first);
+      expect(runningDetails(app.host).open).toBe(false);
+      await toggleRunning(app.host, true);
+      await app.navigate(second);
+      expect(runningDetails(app.host).open).toBe(false);
+
+      await toggleRunning(app.host, true);
+      await app.navigate(first);
+      expect(runningDetails(app.host).open).toBe(true);
     } finally { await app.dispose(); }
   });
 

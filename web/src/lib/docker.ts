@@ -1,4 +1,7 @@
-const runningPreferenceKey = "unraid-mobile.docker.runningCollapsed.v1";
+const runningPreferenceKeys = {
+  home: "unraid-mobile.home.docker.runningCollapsed.v1",
+  docker: "unraid-mobile.docker.runningCollapsed.v1",
+};
 type PreferenceStorage = Pick<Storage, "getItem" | "setItem">;
 
 // containerGroup preserves transitional states outside the stopped group.
@@ -24,22 +27,26 @@ export function formatContainerUptime(seconds: number | null): string {
   return minutes > 0 ? `${minutes}m` : "<1m";
 }
 
-// readRunningCollapsed tolerates private browsing and server-side rendering.
-export function readRunningCollapsed(storage?: PreferenceStorage): boolean {
+// readRunningCollapsed reads the page's preference and tolerates unavailable storage.
+export function readRunningCollapsed(
+  page: "home" | "docker",
+  storage?: PreferenceStorage,
+): boolean {
   try {
-    return (storage ?? window.localStorage).getItem(runningPreferenceKey) === "true";
+    return (storage ?? window.localStorage).getItem(runningPreferenceKeys[page]) === "true";
   } catch {
     return false;
   }
 }
 
-// saveRunningCollapsed stores only a UI preference, never a server snapshot.
+// saveRunningCollapsed stores only the current page's UI preference.
 export function saveRunningCollapsed(
   collapsed: boolean,
+  page: "home" | "docker",
   storage?: PreferenceStorage,
 ): void {
   try {
-    (storage ?? window.localStorage).setItem(runningPreferenceKey, String(collapsed));
+    (storage ?? window.localStorage).setItem(runningPreferenceKeys[page], String(collapsed));
   } catch {
     // Storage restrictions must not prevent expanding the container list.
   }

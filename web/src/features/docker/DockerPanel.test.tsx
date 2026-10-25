@@ -74,12 +74,14 @@ describe("DockerPanel", () => {
     expect(html).toMatch(/<details[^>]*open=""[^>]*><summary[^>]*>Running/);
   });
 
-  it.each([false, true])("reuses the persisted Running fold in overview=%s", (overview) => {
-    const getItem = vi.fn(() => "true");
-    vi.stubGlobal("window", { localStorage: { getItem } });
+  it.each([false, true])("reads its own persisted Running fold in overview=%s", (overview) => {
+    const values = new Map([
+      ["unraid-mobile.docker.runningCollapsed.v1", String(!overview)],
+      ["unraid-mobile.home.docker.runningCollapsed.v1", String(overview)],
+    ]);
+    vi.stubGlobal("window", { localStorage: { getItem: (key: string) => values.get(key) ?? null } });
     try {
       const html = renderToStaticMarkup(<DockerPanel snapshot={sample} overview={overview} />);
-      expect(getItem).toHaveBeenCalledWith("unraid-mobile.docker.runningCollapsed.v1");
       expect(html).toContain("Running (1)");
       expect(html).not.toMatch(/<details[^>]*open=""[^>]*><summary[^>]*>Running/);
     } finally {

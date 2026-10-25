@@ -28,26 +28,26 @@ describe("container presentation", () => {
 });
 
 describe("Running collapse preference", () => {
-  it("roundtrips the UI preference without storing server data", () => {
+  it.each(["home", "docker"] as const)("roundtrips the %s UI preference without storing server data", (page) => {
     const values = new Map<string, string>();
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, value: string) => { values.set(key, value); },
     };
-    expect(readRunningCollapsed(storage)).toBe(false);
-    saveRunningCollapsed(true, storage);
-    expect(readRunningCollapsed(storage)).toBe(true);
-    saveRunningCollapsed(false, storage);
-    expect(readRunningCollapsed(storage)).toBe(false);
+    expect(readRunningCollapsed(page, storage)).toBe(false);
+    saveRunningCollapsed(true, page, storage);
+    expect(readRunningCollapsed(page, storage)).toBe(true);
+    saveRunningCollapsed(false, page, storage);
+    expect(readRunningCollapsed(page, storage)).toBe(false);
     expect(values.size).toBe(1);
   });
 
-  it("remains usable when browser storage access is denied", () => {
+  it.each(["home", "docker"] as const)("remains usable on %s when browser storage access is denied", (page) => {
     const storage = {
       getItem: () => { throw new Error("Access denied"); },
       setItem: () => { throw new Error("Access denied"); },
     };
-    expect(readRunningCollapsed(storage)).toBe(false);
-    expect(() => saveRunningCollapsed(true, storage)).not.toThrow();
+    expect(readRunningCollapsed(page, storage)).toBe(false);
+    expect(() => saveRunningCollapsed(true, page, storage)).not.toThrow();
   });
 });

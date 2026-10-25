@@ -22,7 +22,8 @@ export function DockerPanel({
   stale?: boolean;
   errorMessage?: string;
 }) {
-  const [runningCollapsed, setRunningCollapsed] = useState(readRunningCollapsed);
+  const preferencePage = overview ? "home" : "docker";
+  const [runningCollapsed, setRunningCollapsed] = useState(() => readRunningCollapsed(preferencePage));
   const groups: Record<"running" | "stopped" | "other", DockerContainer[]> = {
     running: [],
     stopped: [],
@@ -70,7 +71,7 @@ export function DockerPanel({
                   onToggle={(event) => {
                     const collapsed = !event.currentTarget.open;
                     setRunningCollapsed(collapsed);
-                    saveRunningCollapsed(collapsed);
+                    saveRunningCollapsed(collapsed, preferencePage);
                   }}
                 >
                   <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline-cyan-300">

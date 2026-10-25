@@ -65,6 +65,8 @@ it("shows real array capacity, pool capacity and disk details", () => {
   ])
     expect(html).toContain(value);
   expect(html).not.toContain("Adapter not connected");
+  expect(html).not.toContain("Sampled");
+  expect(html).not.toContain(sample.timestamp);
 });
 it("explains that a standby disk has no live temperature", () => {
   const html = renderToStaticMarkup(

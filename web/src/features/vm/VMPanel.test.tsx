@@ -32,10 +32,11 @@ describe("VMPanel", () => {
     expect(missing).not.toContain("No virtual machines configured");
   });
 
-  it("retains the last sample and time when refreshing fails", () => {
+  it("retains the last sample when refreshing fails", () => {
     const html = renderToStaticMarkup(<VMPanel snapshot={sample} stale errorMessage="VM proxy denied the request" />);
     for (const text of ["Showing the last sample", "Windows 11", "VM proxy denied the request", "Uptime unavailable"]) expect(html).toContain(text);
-    expect(html).toMatch(/datetime="2026-10-24T00:00:00Z"/i);
+    expect(html).not.toContain("Sampled");
+    expect(html).not.toContain(sample.timestamp);
   });
 
   it("keeps unknown states outside Stopped and labels them unknown", () => {

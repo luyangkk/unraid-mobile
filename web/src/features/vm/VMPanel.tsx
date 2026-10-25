@@ -51,9 +51,6 @@ export function VMPanel({ snapshot, stale = false, errorMessage }: {
           )}
         </div>
       )}
-      <p className={`mt-3 text-right text-xs text-slate-500 ${stale ? "opacity-60" : ""}`}>
-        Sampled <time dateTime={snapshot.timestamp}>{new Date(snapshot.timestamp).toLocaleTimeString()}</time>
-      </p>
       <Diagnostics messages={snapshot.diagnostics} label="VM diagnostics" />
     </section>
   );

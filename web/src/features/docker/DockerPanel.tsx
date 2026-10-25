@@ -95,12 +95,6 @@ export function DockerPanel({
           )}
         </div>
       )}
-      <p className={`mt-3 text-right text-xs text-slate-500 ${stale ? "opacity-60" : ""}`}>
-        Sampled{" "}
-        <time dateTime={snapshot.timestamp}>
-          {new Date(snapshot.timestamp).toLocaleTimeString()}
-        </time>
-      </p>
       {snapshot.diagnostics.length > 0 ? (
         <details className="mt-3 text-xs text-slate-400">
           <summary className="min-h-11 cursor-pointer py-3">Docker diagnostics</summary>

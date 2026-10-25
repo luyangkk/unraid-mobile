@@ -118,9 +118,6 @@ export function StoragePanel({
               ))}
             </details>
           ) : null}
-          <p className="mt-3 text-right text-xs text-slate-500">
-            Sampled {new Date(snapshot.timestamp).toLocaleTimeString()}
-          </p>
         </>
       )}
     </section>

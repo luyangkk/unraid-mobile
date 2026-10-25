@@ -90,18 +90,19 @@ describe("DockerPanel", () => {
     expect(empty).not.toContain("socket unavailable");
   });
 
-  it("retains the last data and sample time on refresh failure, with diagnostics", () => {
+  it("retains the last data on refresh failure, with diagnostics", () => {
     const html = renderToStaticMarkup(
       <DockerPanel snapshot={sample} stale errorMessage="Docker proxy denied the request" />,
     );
     expect(html).toContain("Showing the last sample");
     expect(html).toContain("Docker proxy denied the request");
     expect(html).toContain("Plex");
-    expect(html).toMatch(/datetime="2026-10-24T00:00:00Z"/i);
+    expect(html).not.toContain("Sampled");
+    expect(html).not.toContain(sample.timestamp);
     expect(html).toContain("Stats unavailable");
   });
 
-  it("preserves the unavailable sample reason and time alongside a new request error", () => {
+  it("preserves the unavailable sample reason alongside a new request error", () => {
     const html = renderToStaticMarkup(
       <DockerPanel
         snapshot={{ ...sample, available: false, reason: "Socket permission denied" }}
@@ -111,7 +112,8 @@ describe("DockerPanel", () => {
     );
     expect(html).toContain("Socket permission denied");
     expect(html).toContain("Server connection refused");
-    expect(html).toMatch(/datetime="2026-10-24T00:00:00Z"/i);
+    expect(html).not.toContain("Sampled");
+    expect(html).not.toContain(sample.timestamp);
     expect(html).not.toContain("Plex");
   });
 });

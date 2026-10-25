@@ -164,11 +164,6 @@ export function Dashboard({ logout }: { logout?: () => void }) {
         {snapshot ? (
           <div className={connection === "offline" ? "opacity-60" : ""}>
             <SystemPanel snapshot={snapshot} points={points} />
-            {snapshot.available ? (
-              <p className="mt-2 text-right text-xs text-slate-500">
-                Sampled {new Date(snapshot.timestamp).toLocaleTimeString()}
-              </p>
-            ) : null}
           </div>
         ) : (
           <div

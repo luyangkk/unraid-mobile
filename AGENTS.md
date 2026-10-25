@@ -39,7 +39,7 @@
 - System 复用 `lib/stream.ts`，首次、重试和后台恢复均先取快照再开单一 fetch SSE；后台中止连接，卸载释放 reader 和 AbortController，避免旧结果回写。Storage / Docker 每两秒、VM 每三秒轮询，仅使用数据的当前路由挂载查询，后台暂停，前台恢复先刷新。
 - 首次无数据显示加载占位；刷新/断线保留已有样本并注明旧数据和采样时间。区分连接失败、采集不可用和空配置，保留不可用模块及原因，不伪造健康分、进度或成功结果。
 - 格式化复用 `lib/system.ts`，统一 1024 进制单位和 `/s`；未知值显示 `—` 或 unavailable。CPU 趋势仅在浏览器内存保留最多 60 个去重样本，用 SVG 绘制，不作为历史监控。
-- 依据 2026-10-25 用户最新要求，尽量复刻 `unraid.net` 官网源码风格，可参考 `10.0.0.66` 的 7.1.0 WebGUI。Dark 使用黑灰表面，Light 使用暖米色页面和白色卡片；共享红橙渐变，主按钮默认白字、hover/focus 黑字，次按钮使用胶囊渐变描边并在 hover 时填满渐变；精细指针 hover 按官网 4 秒周期流动，触屏和 reduced-motion 保持静态。用户已明确取消此前的数值对比度门槛，不为满足 4.5:1 或 3:1 改写官网色值；仍保留可读标签、键盘焦点和禁用反馈。官网分区适配为本项目深浅主题，不宣称官网提供主题切换；官方色值和移动端适配在 `styles.css` 注释中区分。按用途使用语义 token，不覆盖 Tailwind 原始调色板；品牌选中态不代表警告，独立状态色、图表/容量指标颜色不代表健康状态。保持移动单列、`max-w-md`、320px 最小视口和上下安全区。复用系统字体、等宽数字，避免数值更新造成布局跳动。
+- UI 遵循下文“UI 视觉与交互规范”，具体色值和交互参数以列出的源码为准。保持移动单列、`max-w-md`、320px 最小视口和上下安全区；复用系统字体、等宽数字，避免数值更新造成布局跳动。
 - 外观默认 Dark，`localStorage` 的 `unraid-mobile.theme` 仅保存 `dark|light|system`；System 跟随设备，异常存储回退 Dark，跨标签页同步。head 脚本尽早应用外观，运行时由根元素属性和 CSS 变量更新，包括认证页、Portal 和 PWA 提示；不重建 Router、QueryClient、SessionGate、AppShell 或 SSE。实际颜色变化前取消 Tab 视觉转场，已提交导航继续。外观 AppSheet 选择后保持打开和焦点。
 - System 指标集中在一个面板，Storage 按 Array/Parity/Pools/Disks 分组，Disks 与诊断用 `details/summary` 折叠；磁盘行显示摘要，点击后用 AppSheet 展示详情。Button 保留至少 44px 高度、焦点和禁用反馈；图标按钮有可读标签，状态含义不能只靠颜色。
 - 业务组件只使用 `components/app/AppSheet`，不直接依赖 Radix Dialog；动画、手势阈值和减少动画偏好集中在 `lib/motion.ts`。AppSheet 处理模态焦点、关闭后的焦点返回、页面滚动锁定、内部滚动和底部安全区；纵向拖动仅由把手开始，面板支持以水平位移为主的右划关闭，忽略交互控件上的起始手势，保留内容纵向滚动和双指缩放；reduced-motion 禁用手势关闭和位移动画。
@@ -49,6 +49,41 @@
 - PWA 使用 Vite `injectManifest` 生成带版本的静态预缓存，包含全部路由 chunk；只缓存规范的同源静态资源和符合条件的页面导航。API、health、SSE、Operation、外部请求及携带凭据的请求只走网络；编码或非法路径不能命中缓存，缺失资源不能回退为缓存 HTML。不缓存业务数据或令牌，不接入 Background Sync、Push 或离线写入。
 - PWA 注册和更新提示放在 SessionGate 外；开发环境默认不注册，注册失败不能阻断页面。新版本只有用户选择 Refresh 后才能激活并让当前页刷新一次，关闭提示或其他标签页接受更新都不能强制刷新当前页。离线冷启动不恢复业务数据；传输失败保留会话 token，恢复时先验证 capabilities，再恢复业务请求和单一 SSE。
 - 安装和 Service Worker 需要可信 HTTPS 或 localhost 安全上下文；局域网 IP 的 HTTP 地址仅支持在线页面，即使经过 VPN 也不具备 PWA 安全上下文。部署可用 HTTPS、Tailscale HTTPS 或可信 HTTPS 反向代理；`APP_TOKEN` 不能替代 HTTPS。Android / iOS 安装、离线启动、更新确认、横屏和安全区仍须按 README 做真实设备验证，不能用自动化测试代替。
+
+## UI 视觉与交互规范
+
+依据 2026-10-25 用户要求，尽量复刻 `unraid.net` 官网源码风格，可参考 `10.0.0.66` 的 Unraid 7.1.0 WebGUI。官网 `onDark/onBright` 分区映射为本项目 Dark / Light，不宣称官网提供主题切换。官网色值与移动端适配在 `web/src/styles.css` 注释中区分；源码依据和验收见 [官网主题验收](docs/validation/2026-10-25-website-themes.md)。此前数值对比度门槛已取消，不为满足 4.5:1 或 3:1 改写官网色值；仍保留可读标签、键盘焦点和禁用反馈。
+
+### 配色与组件
+
+主题色集中在 `web/src/styles.css`，业务组件按用途使用语义 token，不覆盖 Tailwind 原始调色板，不在组件内另写一套主题色。下表记录当前实现；修改主题时同步更新本规范、`web/src/lib/palette.test.ts` 和相关组件测试。
+
+| 用途 / token | Dark | Light |
+| --- | --- | --- |
+| 页面 `background` | `#171717` | `#F1ECE3` |
+| 卡片 / Sheet `surface` | `#2B2A29` | `#FFFFFF` |
+| 内层 `surface-muted` | `#333231` | `#EEE4D2` |
+| 主文字 `foreground` | `#FFFFFF` | `#171717` |
+| 次文字 `text-muted` | `#CCCCCC` | `#555554` |
+| 分隔线 `border` | `#555554` | `#E0E0E0` |
+| 控件边框 `control-border` | `#555554` | `#7B7B7B` |
+| 品牌文字 `brand-text` | `#FF8C2F` | `#F15A2C` |
+| 焦点 `focus-ring` | `#FF8C2F` | `#FF8C2F` |
+| 图表线 `chart-line` | `#D3D3D3` | `#404040` |
+| 容量填充 / 轨道 `progress-fill/track` | `#B8B8B8 / #404040` | `#595959 / #D3D3D3` |
+
+- 品牌渐变共用 `brand-gradient`：90°、`#E22828 → #FF8C2F`。页头品牌文字使用 `.brand-title` 渐变文字；底部 Tab 选中态使用 `surface` 背景、加粗 `brand-text`、2px 渐变顶线和 `aria-current="page"`，保留图标及文字标签。
+- 按钮复用 `web/src/components/ui/button.tsx`。主按钮为 4px 圆角、渐变填充、默认白字、大写及加宽字距，hover / focus-visible 变 `#171717` 黑字。次按钮为胶囊、2px 渐变描边、透明底和主题主文字，hover / focus-visible 填满渐变并变黑字；填充淡入 300ms。页头图标按钮为 44px 方形尺寸及胶囊外形；Sheet 关闭按钮沿用中性底和边框。
+- 连续渐变仅在 `(hover: hover) and (pointer: fine)` 的 hover 下启用：红 / 橙 / 红 / 橙四段，`background-size: 300% 100%`，`brand-flow 4s linear infinite`，位置由 `100% 100%` 移到 `0% 100%`。键盘焦点显示静态渐变与焦点环，触屏不启用连续流动；reduced-motion 关闭流动和填充过渡。禁用按钮使用中性底、边框和次文字，移除次按钮渐变装饰。
+- `success/warning/danger/info` 独立表达状态，品牌选中态不代表警告，图表和容量颜色不代表健康状态。旧样本通过局部 `stale-foreground/stale-text-muted` 降低文字强调，保留提示和采样时间；不将整个业务面板透明化，不淡化 SVG、状态或容量指标。
+- 外观选择复用 `AppearanceSheet` 的原生 radio group 和 `AppSheet`：选中项使用品牌文字、品牌边框及内层背景。选择后保持打开和焦点；主题更新覆盖认证页、Portal 和 PWA 提示，不重建会话、路由或数据订阅。默认值、存储和同步规则见上文。
+
+### 导航与面板
+
+- Tab 顺序为 Home / Docker / VM / Storage，支持点击和单指左右滑动，不循环越过首尾。手势参数集中在 `web/src/lib/motion.ts`，识别逻辑在 `web/src/app/useTabSwipe.ts`：方向判定距离 12px、横向比例 1.5，切页距离 60px，快速滑动至少 24px 且 600px/s，避让视口两侧各 24px；保留纵向滚动和双指缩放，排除正文中的交互控件、原生横向滚动区和模态区域；底部导航允许滑动，触发切页后抑制该次触摸产生的兼容点击。
+- Tab 转场由 `web/src/app/useTabTransition.ts` 和 `styles.css` 共同实现，始终保持单一 `Outlet`。支持的浏览器在滑动切页时用 View Transition 捕获内容，旧页按方向退出、新页进入；页头和底部导航保持实时状态。位移 32px、退出 180ms、进入 240ms；普通链接导航或 API 不支持 / 捕获失败时，使用 220ms 定向入场；尺寸变化时可降级为淡入。原生捕获等待预算 350ms，超时只跳过视觉效果，已提交导航继续，不重复导航。
+- Pending 或转场期间不接受新的滑动、不排队；底部链接可中断视觉转场并正常导航。切主题、进入后台或启用 reduced-motion 时清理视觉效果，已提交导航继续；数据刷新不重播入场动画。reduced-motion 保留 Tab 导航但关闭位移动画。
+- Sheet 保持底部弹出、`max-w-md`、顶部大圆角、最高 `85dvh`、独立内部滚动及底部安全区。下拖只能从把手开始；右划关闭要求水平位移占优。关闭阈值和弹簧参数集中在 `sheetMotion`，不在业务面板另写手势。保留关闭按钮、模态焦点、焦点返回与滚动锁定；reduced-motion 禁用手势关闭和位移动画。
 
 ## 操作与安全
 

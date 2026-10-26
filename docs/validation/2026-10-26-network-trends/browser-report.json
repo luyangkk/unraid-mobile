@@ -1,0 +1,26 @@
+{
+  "checks": [
+    "selector exposes Auto and sampled interface names",
+    "Auto is the initial selection",
+    "Auto shows the resolved host interface",
+    "selector target is at least 44px tall",
+    "320px viewport has no horizontal overflow",
+    "initial Receive stroke uses Dark brand color",
+    "RX/TX SVG coordinates are finite",
+    "manual selection shows its own interface",
+    "manual interface survives Tab navigation",
+    "Tab navigation and selection keep one SSE",
+    "CPU and both network strokes switch to Light brand",
+    "theme switch keeps SSE and network history",
+    "scrolling makes both network plots visible above fixed navigation",
+    "disappeared manual choice stays selected and unavailable",
+    "Auto follows its newly resolved host interface",
+    "offline keeps the collected curve",
+    "offline keeps a visible stale connection status",
+    "reload resets selection to Auto",
+    "reload and latest telemetry remain finite",
+    "no browser runtime errors"
+  ],
+  "errors": [],
+  "streams": 2
+}

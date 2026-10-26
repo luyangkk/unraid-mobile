@@ -2,9 +2,170 @@ package system
 
 import (
 	"context"
+	"encoding/json"
+	"io/fs"
+	"os"
+	"reflect"
 	"testing"
 	"testing/fstest"
+	"time"
+
+	domain "github.com/unraid-mobile/unraid-mobile/internal/app/system"
 )
+
+type countingFS struct {
+	fs.FS
+	opens map[string]int
+}
+
+// Open counts mounted file reads while delegating to the synthetic filesystem.
+func (f *countingFS) Open(name string) (fs.File, error) {
+	f.opens[name]++
+	return f.FS.Open(name)
+}
+
+// TestReaderNetworkSingleRead checks counters are sampled once regardless of interface count.
+func TestReaderNetworkSingleRead(t *testing.T) {
+	files := &countingFS{FS: fixture(), opens: map[string]int{}}
+	if _, err := NewReader(files).Read(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if files.opens["proc/1/net/dev"] != 1 || files.opens["proc/1/net/route"] != 1 || files.opens["proc/net/dev"] != 0 {
+		t.Fatalf("mounted network read counts = %v", files.opens)
+	}
+}
+
+// TestReaderSyntheticNetworkFixtures checks real mounted fixture parsing and service projection.
+func TestReaderSyntheticNetworkFixtures(t *testing.T) {
+	reader := NewReader(os.DirFS("../../../testdata/host"))
+	raw, err := reader.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	items := rawInterfaces(t, raw)
+	names := []string{}
+	for _, item := range items {
+		names = append(names, item.Name)
+		if !item.Available || item.Identity == nil {
+			t.Fatalf("synthetic interface must have readable counters and ifindex: %+v", item)
+		}
+	}
+	if !reflect.DeepEqual(names, []string{"br0", "eth0", "lo", "veth1"}) {
+		t.Fatalf("synthetic interface names = %v", names)
+	}
+	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	svc := domain.NewService(reader, func() time.Time { return now })
+	first := svc.Collect(context.Background())
+	for _, item := range first.NetworkInterfaces {
+		if item.RXBytesPerSecond != nil || item.TXBytesPerSecond != nil {
+			t.Fatalf("first synthetic rates must be null: %+v", item)
+		}
+	}
+	now = now.Add(2 * time.Second)
+	got := svc.Collect(context.Background())
+	for _, item := range got.NetworkInterfaces {
+		if item.RXBytesPerSecond == nil || *item.RXBytesPerSecond != 0 || item.TXBytesPerSecond == nil || *item.TXBytesPerSecond != 0 {
+			t.Fatalf("unchanged synthetic rates must be zero: %+v", item)
+		}
+	}
+	if got.NetworkInterface != "br0" || got.NetworkRXRate == nil || *got.NetworkRXRate != 0 || got.NetworkTXRate == nil || *got.NetworkTXRate != 0 {
+		t.Fatalf("synthetic Auto projection = %+v", got)
+	}
+}
+
+// rawInterfaces decodes reader output without requiring the new domain type.
+func rawInterfaces(t *testing.T, raw any) []struct {
+	Name      string
+	Available bool
+	Reason    string
+	RX, TX    uint64
+	Identity  *uint64
+} {
+	t.Helper()
+	data, err := json.Marshal(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded struct {
+		NetworkInterfaces []struct {
+			Name      string
+			Available bool
+			Reason    string
+			RX, TX    uint64
+			Identity  *uint64
+		}
+	}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	return decoded.NetworkInterfaces
+}
+
+// TestReaderNetworkInterfaces checks mounted counters independently from Auto routes.
+func TestReaderNetworkInterfaces(t *testing.T) {
+	t.Run("sorted interfaces and lowest valid default metric", func(t *testing.T) {
+		files := fixture()
+		files["proc/1/net/dev"].Data = []byte("veth1: 9000 0 0 0 0 0 0 0 8000 0 0 0 0 0 0 0\nlo: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\nbr0: 1000 0 0 0 0 0 0 0 2000 0 0 0 0 0 0 0\n")
+		files["proc/1/net/route"].Data = []byte("Iface Destination Gateway Flags RefCnt Use Metric Mask\nlo 00000000 0 0000 0 0 1 00000000\nlo 00000000 0 broken 0 0 0 00000000\nlo 00000000 0 0001 0 0 bad 00000000\nlo 00000000 0 0001 0 0 0 FFFFFFFF\nveth1 00000000 0 0001 0 0 100 00000000\nbr0 00000000 0 0003 0 0 10 00000000\n")
+		files["sys/class/net/br0/ifindex"] = &fstest.MapFile{Data: []byte("12\n")}
+		files["sys/class/net/veth1/ifindex"] = &fstest.MapFile{Data: []byte("invalid\n")}
+		raw, err := NewReader(files).Read(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		items := rawInterfaces(t, raw)
+		names := []string{}
+		for _, item := range items {
+			names = append(names, item.Name)
+			if !item.Available {
+				t.Fatalf("readable interface unavailable: %+v", item)
+			}
+		}
+		if !reflect.DeepEqual(names, []string{"br0", "lo", "veth1"}) {
+			t.Fatalf("interface names = %v, want [br0 lo veth1]", names)
+		}
+		if items[0].RX != 1000 || items[0].TX != 2000 || items[0].Identity == nil || *items[0].Identity != 12 || items[2].Identity != nil {
+			t.Fatalf("counters or identity = %+v", items)
+		}
+		if raw.NetworkInterface != "br0" || !raw.NetworkAvailable || raw.NetworkRX != items[0].RX || raw.NetworkTX != items[0].TX {
+			t.Fatalf("Auto projection = %+v", raw)
+		}
+	})
+	for _, scenario := range []string{"missing route", "malformed route", "no default", "missing dev", "malformed row"} {
+		t.Run(scenario, func(t *testing.T) {
+			files := fixture()
+			switch scenario {
+			case "missing route":
+				delete(files, "proc/1/net/route")
+			case "malformed route":
+				files["proc/1/net/route"].Data = []byte("br0 nonsense\n")
+			case "no default":
+				files["proc/1/net/route"].Data = []byte("br0 0000000A 0 0001 0 0 0 00FFFFFF\n")
+			case "missing dev":
+				delete(files, "proc/1/net/dev")
+				files["proc/net/dev"] = &fstest.MapFile{Data: []byte("eth0: 999 0 0 0 0 0 0 0 999 0 0 0 0 0 0 0")}
+			case "malformed row":
+				files["proc/1/net/dev"].Data = []byte("br0: invalid 0 0 0 0 0 0 0 2000 0 0 0 0 0 0 0\nveth1: 9000 0 0 0 0 0 0 0 8000 0 0 0 0 0 0 0\nshort: 1 2\n")
+			}
+			raw, err := NewReader(files).Read(context.Background())
+			if err != nil || raw.MemoryTotal == 0 || raw.CPUTotal == 0 {
+				t.Fatalf("network failure discarded System: %+v, %v", raw, err)
+			}
+			items := rawInterfaces(t, raw)
+			if scenario == "missing dev" {
+				if items == nil || len(items) != 0 || raw.NetworkAvailable || raw.Diagnostics["network"] == "" {
+					t.Fatalf("missing mounted counters = %+v, items=%v", raw, items)
+				}
+			} else if scenario == "malformed row" {
+				if len(items) != 3 || items[0].Available || items[0].Reason == "" || items[1].Available || !items[2].Available || raw.NetworkAvailable {
+					t.Fatalf("malformed rows must be isolated: %+v", items)
+				}
+			} else if len(items) != 2 || !items[0].Available || !items[1].Available || raw.NetworkAvailable || raw.Diagnostics["network"] == "" {
+				t.Fatalf("route failure discarded manual counters: %+v", raw)
+			}
+		})
+	}
+}
 
 func fixture() fstest.MapFS {
 	return fstest.MapFS{

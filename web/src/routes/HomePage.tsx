@@ -23,7 +23,9 @@ export function HomePage() {
       {system.snapshot ? (
         <div>
           {systemStale ? <p role="status" className="mb-2 text-xs text-warning">Showing the last sample. Sampled <time dateTime={system.snapshot.timestamp}>{system.snapshot.timestamp}</time></p> : null}
-          <div className={systemStale ? "opacity-60" : ""}><SystemPanel snapshot={system.snapshot} points={system.points} /></div>
+          <div className={systemStale ? "opacity-60" : ""}><SystemPanel snapshot={system.snapshot} points={system.points}
+            networkSelection={system.networkSelection} onNetworkSelectionChange={system.setNetworkSelection}
+            selectedNetwork={system.selectedNetwork!} networkPoints={system.networkPoints} /></div>
         </div>
       ) : <LoadingPanel title="System" message="Connecting to the server…" />}
       <div>

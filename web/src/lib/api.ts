@@ -9,6 +9,14 @@ export type Capabilities = {
   parity?: { read: boolean; start: boolean; cancel: boolean };
 };
 
+export type NetworkInterfaceSnapshot = {
+  name: string;
+  available: boolean;
+  reason?: string;
+  rxBytesPerSecond: number | null;
+  txBytesPerSecond: number | null;
+};
+
 export type SystemSnapshot = {
   timestamp: string;
   available: boolean;
@@ -22,6 +30,7 @@ export type SystemSnapshot = {
   networkInterface: string;
   networkRXRate: number | null;
   networkTXRate: number | null;
+  networkInterfaces?: NetworkInterfaceSnapshot[];
   diagnostics: Record<string, string>;
 };
 

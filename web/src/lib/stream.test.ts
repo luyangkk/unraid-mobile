@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, getSystem, type SystemSnapshot } from "./api";
 import { setAppToken, subscribeUnauthorized } from "./auth";
 import { subscribeSystem } from "./stream";
+import { systemSample } from "../test/app-fixtures";
 
 const sample = {
-  available: true,
-  timestamp: "2026-10-24T00:00:00Z",
+  ...systemSample,
   hostname: "server",
-} as SystemSnapshot;
+};
 const stops: (() => void)[] = [];
 
 beforeEach(() => {
@@ -92,6 +92,29 @@ async function flush() {
 }
 
 describe("fetch SSE transport", () => {
+  it.each([true, false])("delivers network arrays and legacy snapshots unchanged: array=%s", async (withInterfaces) => {
+    const f = fixture();
+    start(f.options);
+    await flush();
+    const payload = {
+      ...sample, timestamp: "2026-10-24T00:00:01Z",
+      networkInterfaces: withInterfaces ? [
+        { name: "eth0", available: false, reason: "Counters unavailable", rxBytesPerSecond: null, txBytesPerSecond: null },
+        { name: "br0", available: true, rxBytesPerSecond: 0, txBytesPerSecond: 2048 },
+      ] : undefined,
+    };
+    f.stream.send(`event: system.metrics\ndata: ${JSON.stringify(payload)}\n\n`);
+    await flush();
+    const delivered = f.options.onSnapshot.mock.calls.at(-1)![0] as SystemSnapshot;
+    expect(delivered.networkInterface).toBe("br0");
+    expect(delivered.networkRXRate).toBe(1048576);
+    expect(delivered.networkInterfaces).toEqual(withInterfaces ? [
+      { name: "eth0", available: false, reason: "Counters unavailable", rxBytesPerSecond: null, txBytesPerSecond: null },
+      { name: "br0", available: true, rxBytesPerSecond: 0, txBytesPerSecond: 2048 },
+    ] : undefined);
+    expect(f.options.fetcher).toHaveBeenCalledOnce();
+  });
+
   it.each([null, "replacement-token", "original-token"])("stops a changed credential session immediately: %j", async (token) => {
     setAppToken("original-token");
     const f = fixture();

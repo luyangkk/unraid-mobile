@@ -1,0 +1,143 @@
+{
+  "fixture": "Production build with local synthetic API/SSE; no host access",
+  "checks": [
+    "dark: modal radio selection, dismissal, focus return, CPU retention and one SSE",
+    "dark: Escape focus return, full wrapping long names, truncated trigger, no horizontal overflow or JavaScript errors",
+    "light: modal radio selection, dismissal, focus return, CPU retention and one SSE",
+    "light: Escape focus return, full wrapping long names, truncated trigger, no horizontal overflow or JavaScript errors"
+  ],
+  "layouts": [
+    {
+      "theme": "dark",
+      "width": 320,
+      "viewport": 320,
+      "scrollWidth": 320,
+      "triggerHeight": 44,
+      "headerHeight": 44,
+      "numberTops": [
+        562,
+        562
+      ],
+      "plotTops": [
+        602,
+        602
+      ],
+      "plotHeights": [
+        48,
+        48
+      ],
+      "chartColor": "rgb(255, 140, 47)",
+      "selectCount": 0
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "triggerHeight": 44,
+      "headerHeight": 44,
+      "numberTops": [
+        526,
+        526
+      ],
+      "plotTops": [
+        566,
+        566
+      ],
+      "plotHeights": [
+        48,
+        48
+      ],
+      "chartColor": "rgb(255, 140, 47)",
+      "selectCount": 0
+    },
+    {
+      "theme": "dark",
+      "width": 448,
+      "viewport": 448,
+      "scrollWidth": 448,
+      "triggerHeight": 44,
+      "headerHeight": 44,
+      "numberTops": [
+        526,
+        526
+      ],
+      "plotTops": [
+        566,
+        566
+      ],
+      "plotHeights": [
+        48,
+        48
+      ],
+      "chartColor": "rgb(255, 140, 47)",
+      "selectCount": 0
+    },
+    {
+      "theme": "light",
+      "width": 320,
+      "viewport": 320,
+      "scrollWidth": 320,
+      "triggerHeight": 44,
+      "headerHeight": 44,
+      "numberTops": [
+        562,
+        562
+      ],
+      "plotTops": [
+        602,
+        602
+      ],
+      "plotHeights": [
+        48,
+        48
+      ],
+      "chartColor": "rgb(241, 90, 44)",
+      "selectCount": 0
+    },
+    {
+      "theme": "light",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "triggerHeight": 44,
+      "headerHeight": 44,
+      "numberTops": [
+        526,
+        526
+      ],
+      "plotTops": [
+        566,
+        566
+      ],
+      "plotHeights": [
+        48,
+        48
+      ],
+      "chartColor": "rgb(241, 90, 44)",
+      "selectCount": 0
+    },
+    {
+      "theme": "light",
+      "width": 448,
+      "viewport": 448,
+      "scrollWidth": 448,
+      "triggerHeight": 44,
+      "headerHeight": 44,
+      "numberTops": [
+        526,
+        526
+      ],
+      "plotTops": [
+        566,
+        566
+      ],
+      "plotHeights": [
+        48,
+        48
+      ],
+      "chartColor": "rgb(241, 90, 44)",
+      "selectCount": 0
+    }
+  ]
+}

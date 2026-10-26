@@ -29,8 +29,10 @@ it("renders actual metric values and unknown rates", () => {
   const html = renderToStaticMarkup(
     <SystemPanel snapshot={sample} points={[]} {...networkProps} />,
   );
+  const host = document.createElement("div");
+  host.innerHTML = html;
   for (const value of ["25.0%", "50.0%", "42.0 °C", "1.0 MiB/s", "br0", "—"])
-    expect(html).toContain(value);
+    expect(host.textContent).toContain(value);
 });
 it("shows missing host mounts without rendering fake zero metrics", () => {
   const html = renderToStaticMarkup(
@@ -49,17 +51,17 @@ it("labels Auto, its resolved name and both independent rate directions with sam
   const html = renderToStaticMarkup(<SystemPanel snapshot={sample} points={[]} {...networkProps} />);
   const host = document.createElement("div");
   host.innerHTML = html;
-  const select = host.querySelector("select")!;
-  expect(select).not.toBeNull();
-  expect(select.labels?.[0]?.textContent).toBe("Network interface");
-  expect(select.value).toBe("");
-  expect(select.options[0].text).toBe("Auto");
-  expect(select.classList.contains("min-h-11")).toBe(true);
-  expect(select.className).toContain("focus-visible:ring-focus-ring");
-  expect(host.textContent).toContain("Network · br0");
+  const trigger = host.querySelector<HTMLButtonElement>('[aria-label^="Network interface:"]')!;
+  expect(trigger).not.toBeNull();
+  expect(trigger.textContent).toBe("Auto · br0");
+  expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  expect(host.querySelector("select")).toBeNull();
   expect(host.textContent).toContain("↓ Receive");
   expect(host.textContent).toContain("↑ Transmit");
   expect(host.querySelector("time")?.dateTime).toBe(sample.timestamp);
+  expect(host.querySelector("time")?.textContent).toBe("2026-10-24 00:00:00 UTC");
+  expect(host.textContent).toContain("Last 60s");
 });
 
 it("retains a missing selected option and reason without showing Auto rates", () => {
@@ -69,7 +71,7 @@ it("retains a missing selected option and reason without showing Auto rates", ()
   />);
   const host = document.createElement("div");
   host.innerHTML = html;
-  expect(host.querySelector("select")?.value).toBe("eth0");
+  expect(host.querySelector('[aria-label^="Network interface:"]')?.textContent).toBe("eth0");
   expect(host.textContent).toContain("Selected interface unavailable");
   expect(host.textContent).not.toContain("1.0 MiB/s");
 });
@@ -122,7 +124,7 @@ it("contains long names and extreme rates inside shrinkable network columns", ()
   ] }} points={[]} {...networkProps} networkSelection={name} networkPoints={networkPoints}
     selectedNetwork={{ name, available: true, rxBytesPerSecond: Number.MAX_VALUE, txBytesPerSecond: 0 }}
   />);
-  expect(host.querySelector("select")?.className).toContain("min-w-0");
+  expect(host.querySelector('[aria-label^="Network interface:"]')?.textContent).toBe(name);
   for (const svg of host.querySelectorAll("svg")) {
     expect(svg.parentElement?.className).toContain("min-w-0");
     expect(svg.parentElement?.textContent).not.toMatch(/NaN|Infinity/);

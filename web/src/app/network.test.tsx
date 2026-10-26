@@ -17,15 +17,29 @@ function networkSample(second: number, auto = "shim-br0", includeEthernet = true
   };
 }
 
-// selectInterface uses the actual native select change boundary.
-async function selectInterface(host: HTMLElement, value: string) {
-  const select = host.querySelector<HTMLSelectElement>('select[aria-label="Network interface"], select#network-interface');
-  expect(select, "labelled network interface select").not.toBeNull();
-  await act(async () => {
-    select!.value = value;
-    select!.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+// interfaceTrigger reads the current interface from its accessible control.
+function interfaceTrigger(host: HTMLElement) {
+  return host.querySelector<HTMLButtonElement>('[aria-label^="Network interface:"]');
+}
+
+// openInterfaces opens the real AppSheet and reads its current radio group.
+async function openInterfaces(host: HTMLElement) {
+  const trigger = interfaceTrigger(host);
+  expect(trigger, "network interface button").not.toBeNull();
+  await act(async () => trigger!.click());
   await settle();
+  return document.querySelector<HTMLElement>('[role="dialog"]')!;
+}
+
+// selectInterface chooses a radio through the actual modal interaction.
+async function selectInterface(host: HTMLElement, value: string) {
+  const dialog = await openInterfaces(host);
+  const radio = [...dialog.querySelectorAll<HTMLInputElement>('input[type="radio"]')]
+    .find((option) => option.value === value);
+  expect(radio, "requested interface option").toBeDefined();
+  await act(async () => radio!.click());
+  await settle();
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
 }
 
 it("keeps a manual interface and its curves across tabs without a second SSE", async () => {
@@ -40,7 +54,7 @@ it("keeps a manual interface and its curves across tabs without a second SSE", a
     const curve = receive!.outerHTML;
     await app.navigate("Docker");
     await app.navigate("Home");
-    expect(app.host.querySelector<HTMLSelectElement>("select")?.value).toBe("eth0");
+    expect(interfaceTrigger(app.host)?.textContent).toBe("eth0");
     expect(app.host.querySelector('svg[aria-label*="Receive"]')?.outerHTML).toBe(curve);
     expect(app.requests.filter(({ url }) => url.endsWith("/events"))).toHaveLength(1);
   } finally { await app.dispose(); }
@@ -53,14 +67,14 @@ it("retains a disappeared manual choice without substituting Auto rates", async 
     await selectInterface(app.host, "eth0");
     await app.emit(networkSample(2));
     await app.emit(networkSample(3, "shim-br0", false));
-    expect(app.host.querySelector<HTMLSelectElement>("select")?.value).toBe("eth0");
+    expect(interfaceTrigger(app.host)?.textContent).toBe("eth0");
     expect(app.host.textContent).toMatch(/unavailable/i);
     expect(app.host.textContent).not.toContain("2.0 MiB/s");
     expect(app.host.textContent).not.toContain("1.0 KiB/s");
     expect(app.host.querySelector('svg[aria-label*="Receive"] polyline')?.getAttribute("points"))
       .toBe("0.0,0.0 50.0,0.0");
     await app.emit(networkSample(4));
-    expect(app.host.querySelector<HTMLSelectElement>("select")?.value).toBe("eth0");
+    expect(interfaceTrigger(app.host)?.textContent).toBe("eth0");
     expect(app.host.textContent).toContain("2.0 MiB/s");
     await app.emit(networkSample(5));
     expect(app.host.querySelector('svg[aria-label*="Receive"]')).not.toBeNull();
@@ -79,7 +93,7 @@ it("resets Auto history when its resolved interface changes and ignores older fr
     await app.emit(networkSample(3, "eth0"));
     expect(app.host.querySelector('svg[aria-label*="Receive"]')).toBeNull();
     await app.emit(networkSample(2));
-    expect(app.host.textContent).toContain("Network · eth0");
+    expect(interfaceTrigger(app.host)?.textContent).toBe("Auto · eth0");
     expect(app.host.textContent).toContain("2.0 MiB/s");
     expect(app.host.textContent).not.toContain("1.0 KiB/s");
     expect(app.host.querySelector('svg[aria-label*="Receive"]')).toBeNull();
@@ -130,7 +144,7 @@ it("preserves manual curves through theme changes without reconnecting the strea
     await settle();
     expect(document.documentElement.dataset.theme).toBe("light");
     expect(app.host.querySelector('svg[aria-label*="Receive"]')?.outerHTML).toBe(curve);
-    expect(app.host.querySelector<HTMLSelectElement>("select")?.value).toBe("eth0");
+    expect(interfaceTrigger(app.host)?.textContent).toBe("eth0");
     expect(signal?.aborted).toBe(false);
     expect(app.requests.filter(({ url }) => url.endsWith("/events"))).toHaveLength(1);
   } finally { await app.dispose(); }
@@ -164,7 +178,7 @@ it("retains curves during background pause and splits a resumed real-time gap", 
     const lines = app.host.querySelectorAll('svg[aria-label*="Receive"] polyline');
     expect([...lines].map((line) => line.getAttribute("points")))
       .toEqual(["0.0,0.0 10.0,0.0", "90.0,0.0 100.0,0.0"]);
-    expect(app.host.querySelector<HTMLSelectElement>("select")?.value).toBe("eth0");
+    expect(interfaceTrigger(app.host)?.textContent).toBe("eth0");
     const urls = app.requests.slice(before).map(({ url }) => url);
     expect(urls.indexOf("/api/v1/system")).toBeLessThan(urls.indexOf("/api/v1/events"));
     expect(app.requests.filter(({ url }) => url.endsWith("/events"))).toHaveLength(2);
@@ -206,7 +220,7 @@ it.each(["logout", "401"])("clears protected history and selection after %s, inc
       await act(async () => { await app.client.refetchQueries({ queryKey: ["capabilities"] }); });
     }
     await settle();
-    expect(app.host.querySelector("select")).toBeNull();
+    expect(interfaceTrigger(app.host)).toBeNull();
     expect(app.host.querySelector("svg")).toBeNull();
     expect(app.client.getQueryCache().getAll()).toHaveLength(0);
     expect(signal?.aborted).toBe(true);
@@ -219,7 +233,7 @@ it.each(["logout", "401"])("clears protected history and selection after %s, inc
     });
     await act(async () => app.host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     await settle();
-    expect(app.host.querySelector<HTMLSelectElement>("select")?.value).toBe("");
+    expect(interfaceTrigger(app.host)?.textContent).toBe("Auto · shim-br0");
     expect(app.host.querySelector('svg[aria-label*="Receive"]')).toBeNull();
     await app.emit(networkSample(11));
     expect(app.host.querySelector('svg[aria-label*="Receive"]')).not.toBeNull();
@@ -242,7 +256,95 @@ it("supports an old server via Auto and clears memory-only selection on remount"
   } finally { await app.dispose(); }
   const fresh = await mountApp();
   try {
-    expect(fresh.host.querySelector<HTMLSelectElement>("select")?.value).toBe("");
+    expect(interfaceTrigger(fresh.host)?.textContent).toBe("Auto · br0");
     expect(fresh.host.querySelector('svg[aria-label*="Receive"]')).toBeNull();
   } finally { await fresh.dispose(); }
+});
+
+it("closes a point selection and returns focus without resetting CPU history or opening another stream", async () => {
+  const app = await mountApp();
+  try {
+    await app.emit(networkSample(1));
+    await app.emit(networkSample(2));
+    const cpu = app.host.querySelector('svg[aria-label*="CPU"]')!.outerHTML;
+    await selectInterface(app.host, "eth0");
+    expect(document.activeElement).toBe(interfaceTrigger(app.host));
+    expect(interfaceTrigger(app.host)?.getAttribute("aria-expanded")).toBe("false");
+    expect(app.host.querySelector('svg[aria-label*="CPU"]')?.outerHTML).toBe(cpu);
+    expect(app.requests.filter(({ url }) => url.endsWith("/events"))).toHaveLength(1);
+  } finally { await app.dispose(); }
+});
+
+it("closes the current choice without clearing its existing network curves", async () => {
+  const app = await mountApp();
+  try {
+    await app.emit(networkSample(1));
+    await app.emit(networkSample(2));
+    const curve = app.host.querySelector('svg[aria-label*="Receive"]')!.outerHTML;
+    await selectInterface(app.host, "");
+    expect(app.host.querySelector('svg[aria-label*="Receive"]')?.outerHTML).toBe(curve);
+    expect(document.activeElement).toBe(interfaceTrigger(app.host));
+  } finally { await app.dispose(); }
+});
+
+it("keeps live sheet focus across theme changes and updates disappeared interface reasons", async () => {
+  const app = await mountApp();
+  try {
+    await app.emit(networkSample(1));
+    await selectInterface(app.host, "eth0");
+    const dialog = await openInterfaces(app.host);
+    const radio = dialog.querySelector<HTMLInputElement>('input[value="eth0"]')!;
+    await act(async () => radio.focus());
+    await act(async () => window.dispatchEvent(new StorageEvent("storage", {
+      key: "unraid-mobile.theme", newValue: "light",
+    })));
+    await app.emit(networkSample(2, "shim-br0", false));
+    expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+    expect(document.activeElement).toBe(radio);
+    expect(radio.checked).toBe(true);
+    expect(radio.closest("label")?.textContent).toMatch(/unavailable/i);
+    expect(dialog.querySelector('input[value=""]')?.closest("label")?.textContent)
+      .toContain("Default route · shim-br0");
+    await act(async () => document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape", bubbles: true,
+    })));
+    await settle();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(interfaceTrigger(app.host));
+  } finally { await app.dispose(); }
+});
+
+it("shows full long names and lets manual selection work when Auto has no default route", async () => {
+  const app = await mountApp();
+  try {
+    const name = "very-long-network-interface-name".repeat(8);
+    await app.emit({
+      ...networkSample(1), networkInterface: "", networkRXRate: null, networkTXRate: null,
+      diagnostics: { networkRoute: "Default route unavailable" },
+      networkInterfaces: [{ name, available: true, rxBytesPerSecond: 4096, txBytesPerSecond: 0 }],
+    });
+    const dialog = await openInterfaces(app.host);
+    expect(dialog.querySelector('input[value=""]')?.closest("label")?.textContent)
+      .toContain("Default route unavailable");
+    const radio = [...dialog.querySelectorAll<HTMLInputElement>("input")].find((option) => option.value === name)!;
+    expect(radio.getAttribute("aria-label")).toBe(name);
+    expect(radio.closest("label")?.textContent).toContain(name);
+    await act(async () => radio.click());
+    await settle();
+    expect(interfaceTrigger(app.host)?.textContent).toBe(name);
+    expect(app.host.textContent).toContain("4.0 KiB/s");
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  } finally { await app.dispose(); }
+});
+
+it("removes an open network sheet when System collection becomes unavailable", async () => {
+  const app = await mountApp();
+  try {
+    await openInterfaces(app.host);
+    await app.emit({ ...networkSample(1), available: false, reason: "Missing host mounts" });
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.body.hasAttribute("data-scroll-locked")).toBe(false);
+    expect(interfaceTrigger(app.host)).toBeNull();
+    expect(app.host.textContent).toContain("Missing host mounts");
+  } finally { await app.dispose(); }
 });

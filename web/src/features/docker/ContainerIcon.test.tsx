@@ -94,3 +94,37 @@ it("waits for foreground/online before loading and rejects non-image responses",
   expect(fetcher).toHaveBeenCalledTimes(1);
   expect(icon.host.querySelector("img")).toBeNull();
 });
+
+it("fetches the configured HTTPS folder icon without app credentials and uses a folder fallback", async () => {
+  setAppToken("test-only-token");
+  const fetcher=vi.fn().mockResolvedValue(new Response("png",{headers:{"Content-Type":"image/png"}}));
+  vi.stubGlobal("fetch",fetcher);
+  const panel=await mountIcon();
+  await act(async()=>panel.root.render(<ContainerIcon container={{id:"folder-photos",folder:true,iconUrl:"https://example.test/immich.png"}} enabled />));
+  expect(fetcher.mock.calls[0][0]).toBe("https://example.test/immich.png");
+  expect(fetcher.mock.calls[0][1]).toMatchObject({cache:"no-store",credentials:"omit",referrerPolicy:"no-referrer",mode:"cors"});
+  expect(new Headers(fetcher.mock.calls[0][1].headers).has("Authorization")).toBe(false);
+  expect(panel.host.querySelector("img")?.getAttribute("src")).toBe("blob:icon");
+  await act(async()=>panel.host.querySelector("img")!.dispatchEvent(new Event("error")));
+  expect(panel.host.querySelector(".lucide-folder")).not.toBeNull();
+});
+it("never requests an unsafe folder icon reference",async()=>{
+ const fetcher=vi.fn();vi.stubGlobal("fetch",fetcher);
+ const panel=await mountIcon();
+ for(const iconUrl of ["javascript:alert(1)","http://example.test/icon.png","https://user:pass@example.test/icon.png"]){
+  await act(async()=>panel.root.render(<ContainerIcon container={{id:"folder-photos",folder:true,iconUrl}} enabled />));
+  expect(panel.host.querySelector(".lucide-folder")).not.toBeNull();
+ }
+ expect(fetcher).not.toHaveBeenCalled();
+});
+it("does not expire the app session when an external folder icon returns 401",async()=>{
+ const unauthorized=vi.fn();const unsubscribe=subscribeUnauthorized(unauthorized);
+ try{
+  setAppToken("test-only-token");
+  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response("private icon",{status:401})));
+  const panel=await mountIcon();
+  await act(async()=>panel.root.render(<ContainerIcon container={{id:"folder-photos",folder:true,iconUrl:"https://example.test/private.png"}} enabled />));
+  expect(panel.host.querySelector(".lucide-folder")).not.toBeNull();
+  expect(unauthorized).not.toHaveBeenCalled();
+ }finally{unsubscribe();}
+});

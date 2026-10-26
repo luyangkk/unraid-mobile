@@ -48,3 +48,30 @@ func TestIconSnapshotLifecycle(t *testing.T) {
 		t.Fatal("removed container icon retained")
 	}
 }
+
+func TestFolderSnapshotAndIconLifecycle(t *testing.T) {
+	reader := &testReader{raw: Raw{Containers: []RawContainer{{ID: "one", Name: "Server", State: "running"}}, Folders: []RawFolder{{ID: "folder-photos", Name: "Photos", ContainerIDs: []string{"one"}, MatchPattern: "^photo_", IconURL: "https://example.test/icon.png", IconPNG: []byte("inline PNG")}}}}
+	service := NewService(reader, time.Now)
+	first := service.Collect(context.Background())
+	version := first.Folders[0].IconVersion
+	reader.raw.Folders[0].ContainerIDs[0] = "mutated source"
+	first.Folders[0].ContainerIDs[0] = "mutated snapshot"
+	if service.Latest().Folders[0].ContainerIDs[0] != "one" {
+		t.Fatal("folder membership cache was mutated")
+	}
+	if data, ok := service.Icon("folder-photos", version); !ok || string(data) != "inline PNG" {
+		t.Fatal("missing folder PNG")
+	}
+	body, _ := json.Marshal(service.Latest())
+	if strings.Contains(string(body), "inline PNG") || !strings.Contains(string(body), `"folders"`) {
+		t.Fatal("unsafe folder JSON")
+	}
+	reader.raw.Folders = nil
+	service.Collect(context.Background())
+	if len(service.Latest().Folders) > 0 {
+		t.Fatal("removed folder retained")
+	}
+	if _, ok := service.Icon("folder-photos", version); ok {
+		t.Fatal("removed folder icon retained")
+	}
+}

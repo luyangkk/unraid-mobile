@@ -5,6 +5,8 @@ import { ContainerIcon } from "./ContainerIcon";
 import type { DockerContainer, DockerSnapshot } from "../../lib/api";
 import {
   containerGroup,
+  dockerOverviewItems,
+  type DockerOverviewItem,
   containerStateLabel,
   formatContainerUptime,
   readRunningCollapsed,
@@ -73,7 +75,7 @@ export function DockerPanel({
             ) : (
               <>
                 {overview ? (
-                  <RunningOverview containers={groups.running} expanded={overviewExpanded}
+                  <RunningOverview items={dockerOverviewItems(snapshot)} expanded={overviewExpanded}
                     onExpandedChange={onOverviewExpandedChange} stale={stale} loadIcons={loadIcons} />
                 ) : <details
                   className="mt-3"
@@ -165,34 +167,33 @@ function ContainerRow({ container }: { container: DockerContainer }) {
 }
 
 const overviewLimit = 8;
-const nameOrder = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
 
 // RunningOverview keeps Home compact without changing the shared snapshot order.
-function RunningOverview({ containers, expanded, onExpandedChange, stale, loadIcons }: {
-  containers: DockerContainer[];
+function RunningOverview({ items, expanded, onExpandedChange, stale, loadIcons }: {
+  items: DockerOverviewItem[];
   expanded: boolean;
   onExpandedChange?: (expanded: boolean) => void;
   stale: boolean;
   loadIcons: boolean;
 }) {
   const listId = useId();
-  const sorted = [...containers].sort((a, b) => nameOrder.compare(a.name, b.name) || a.id.localeCompare(b.id));
-  const shown = expanded ? sorted : sorted.slice(0, overviewLimit);
-  if (sorted.length === 0) return <p className={`mt-3 text-sm ${stale ? "text-stale-text-muted" : "text-text-muted"}`}>No running containers</p>;
+  const shown = expanded ? items : items.slice(0, overviewLimit);
+  if (items.length === 0) return <p className={`mt-3 text-sm ${stale ? "text-stale-text-muted" : "text-text-muted"}`}>No running containers</p>;
   return (
     <>
       <ul id={listId} aria-label="Running containers" className="mt-4 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2">
         {shown.map((container) => (
-          <li key={container.id} className="flex min-h-12 min-w-0 items-center gap-2">
+          <li key={container.id} className="flex min-h-12 min-w-0 items-center gap-2"
+            aria-label={container.folder ? `${container.name}, folder, ${container.running} of ${container.total} containers running` : undefined}>
             <ContainerIcon container={container} enabled={loadIcons} />
             <span className="min-w-0 truncate text-sm font-medium" title={container.name}>{container.name}</span>
           </li>
         ))}
       </ul>
-      {sorted.length > overviewLimit ? (
+      {items.length > overviewLimit ? (
         <Button type="button" variant="secondary" className="mt-3 w-full" aria-expanded={expanded}
           aria-controls={listId} onClick={() => onExpandedChange?.(!expanded)}>
-          {expanded ? "Show fewer containers" : `Show ${sorted.length - overviewLimit} more containers`}
+          {expanded ? "Show fewer containers" : `Show ${items.length - overviewLimit} more ${items.length - overviewLimit === 1 ? "container" : "containers"}`}
         </Button>
       ) : null}
     </>

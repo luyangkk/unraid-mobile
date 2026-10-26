@@ -59,9 +59,12 @@ func (r *Reader) Read(ctx context.Context) (appdocker.Raw, error) {
 		return appdocker.Raw{}, err
 	}
 	var list []struct {
-		ID    string   `json:"Id"`
-		Names []string `json:"Names"`
-		State string   `json:"State"`
+		ID     string   `json:"Id"`
+		Names  []string `json:"Names"`
+		State  string   `json:"State"`
+		Labels struct {
+			Folder string `json:"folder.view2"`
+		} `json:"Labels"`
 	}
 	if err := r.getJSON(ctx, "/v"+version+"/containers/json?all=1", &list); err != nil {
 		return appdocker.Raw{}, errors.New("Docker container list unavailable")
@@ -81,7 +84,7 @@ func (r *Reader) Read(ctx context.Context) (appdocker.Raw, error) {
 		default:
 			state = "unknown"
 		}
-		raw.Containers[i] = appdocker.RawContainer{ID: item.ID, Name: name, State: state, Diagnostics: []string{}}
+		raw.Containers[i] = appdocker.RawContainer{ID: item.ID, Name: name, State: state, FolderName: item.Labels.Folder, Diagnostics: []string{}}
 	}
 	running := []int{}
 	for i := range raw.Containers {

@@ -1,3 +1,5 @@
+import type { DockerContainer, DockerSnapshot } from "./api";
+
 const runningPreferenceKeys = {
   home: "unraid-mobile.home.docker.runningCollapsed.v1",
   docker: "unraid-mobile.docker.runningCollapsed.v1",
@@ -50,4 +52,32 @@ export function saveRunningCollapsed(
   } catch {
     // Storage restrictions must not prevent expanding the container list.
   }
+}
+
+export type DockerOverviewItem = Pick<DockerContainer, "id" | "name" | "iconVersion"> & {
+  folder?: boolean;
+  iconUrl?: string;
+  running?: number;
+  total?: number;
+};
+const overviewNameOrder = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
+
+// dockerOverviewItems mirrors FolderView2 membership using native JavaScript regex.
+export function dockerOverviewItems(snapshot: DockerSnapshot): DockerOverviewItem[] {
+  const claimed = new Set<string>();
+  const items: DockerOverviewItem[] = [];
+  for (const folder of snapshot.folders ?? []) {
+    let regex: RegExp | undefined;
+    try { if (folder.matchPattern) regex = new RegExp(folder.matchPattern); } catch { /* Keep explicit members when a pattern is invalid. */ }
+    const explicit = new Set(folder.containerIds);
+    const members = snapshot.containers.filter(container => !claimed.has(container.id) &&
+      (explicit.has(container.id) || regex?.test(container.name)));
+    for (const container of members) claimed.add(container.id);
+    const running = members.filter(container => container.state === "running").length;
+    if (running > 0) items.push({ ...folder, folder: true, running, total: members.length });
+  }
+  for (const container of snapshot.containers) {
+    if (container.state === "running" && !claimed.has(container.id)) items.push(container);
+  }
+  return items.sort((a, b) => overviewNameOrder.compare(a.name, b.name) || a.id.localeCompare(b.id));
 }

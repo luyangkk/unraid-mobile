@@ -269,12 +269,33 @@ the per-container `icon` reference and accepts PNG files beneath that fixed imag
 directory, with a 1 MiB metadata limit, 512 KiB per image, 4096px maximum image
 dimensions and an 8 MiB image-read budget per sample. Missing, invalid or
 unsupported icons fall back to the bundled generic icon without disabling Docker.
-No external image URL is downloaded and no template directory or additional host
-mount is needed. `GET /api/v1/docker` includes an optional `iconVersion` digest;
+The backend never downloads external image URLs. Container icons need no template
+directory or additional host mount. `GET /api/v1/docker` includes an optional `iconVersion` digest;
 `GET /api/v1/docker/{id}/icon?v={iconVersion}` serves only the current cached PNG,
 requires the same Bearer Header as other API reads, and returns `Cache-Control:
 no-store`. The frontend fetches it into a temporary object URL, aborts obsolete
 requests and revokes the URL when released. Icons are not cached for offline use.
+When FolderView2 is installed, optionally mount
+`/boot/config/plugins/folder.view2` at `/host/boot/config/plugins/folder.view2:ro`
+(the production template provides an empty optional path field). The sampler
+reads only `docker.json`, limited to 1 MiB and 64 folders; it never executes plugin
+scripts or actions. Home merges explicit members, JavaScript regex matches and
+containers carrying the matching `folder.view2` label into a single folder item.
+A folder appears while any member is running, with the member count available to
+assistive technology. Fully stopped folders stay off Home. The eight-item limit
+is applied after grouping, while the header still counts actual running
+containers. The Docker page keeps its full per-container rows.
+
+Folder PNG data URIs use the authenticated image cache. Configured HTTPS PNG URLs
+are fetched directly by the browser with CORS, no app token, no cookies, no
+referrer and `no-store`, bounded to 512 KiB; unsupported sources or failures use a
+generic folder icon. The backend is not a URL proxy. A remote origin must permit
+CORS; HTTP, credential-bearing URLs, non-PNG images and missing configuration
+fall back safely. Missing members are ignored, and overlapping membership is
+claimed by the first folder in configuration order. Home retains its name sort;
+plugin custom ordering, folder actions and scripts are not imported. See
+[FolderView2 verification](docs/validation/2026-10-25-folderview2/report.md).
+
 See [source verification and local checks](docs/validation/2026-10-25-home-docker/report.md)
 for the tested host version and remaining device/deployment checks.
 

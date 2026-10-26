@@ -39,7 +39,17 @@ export type DockerContainer = {
   diagnostics: string[];
 };
 
+export type DockerFolder = {
+  id: string;
+  name: string;
+  containerIds: string[];
+  matchPattern?: string;
+  iconUrl?: string;
+  iconVersion?: string;
+};
+
 export type DockerSnapshot = {
+  folders?: DockerFolder[];
   timestamp: string;
   available: boolean;
   reason?: string;
@@ -208,12 +218,41 @@ export async function getDockerIcon(id: string, version: string, signal: AbortSi
   const response = await authenticatedFetch(path, {
     signal, cache: "no-store", credentials: "omit", headers: { Accept: "image/png" },
   });
-  if (!response.ok || response.headers.get("Content-Type")?.split(";")[0] !== "image/png") {
+  return readIconResponse(response);
+}
+
+// FolderView2 URLs go straight to the configured HTTPS origin without app credentials.
+export async function getFolderIcon(source: string, signal: AbortSignal): Promise<Blob | null> {
+  let url: URL;
+  try { url = new URL(source); } catch { return null; }
+  if (url.protocol !== "https:" || url.username || url.password) return null;
+  return readIconResponse(await fetch(url.href, {
+    signal, cache: "no-store", mode: "cors", credentials: "omit", referrerPolicy: "no-referrer",
+    headers: { Accept: "image/png" },
+  }));
+}
+
+// Bound optional image bodies before allocating a Blob, including remote responses.
+async function readIconResponse(response: Response): Promise<Blob | null> {
+  if (!response.ok || response.headers.get("Content-Type")?.split(";")[0] !== "image/png" ||
+      Number(response.headers.get("Content-Length")) > 512 * 1024) {
     void response.body?.cancel().catch(() => {});
     return null;
   }
-  const blob = await response.blob();
-  return blob.size > 0 && blob.size <= 512 * 1024 ? blob : null;
+  const reader = response.body?.getReader();
+  if (!reader) return null;
+  const chunks: ArrayBuffer[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 512 * 1024) { await reader.cancel(); return null; }
+      chunks.push(new Uint8Array(value).buffer);
+    }
+  } finally { reader.releaseLock(); }
+  return size > 0 ? new Blob(chunks, { type: "image/png" }) : null;
 }
 
 // Load the latest VM sample with caller cancellation.

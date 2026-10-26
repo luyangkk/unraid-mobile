@@ -15,6 +15,7 @@ import (
 	vmadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/libvirt"
 	systemadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/system"
 	"github.com/unraid-mobile/unraid-mobile/internal/adapter/unraid/dockericons"
+	"github.com/unraid-mobile/unraid-mobile/internal/adapter/unraid/folderview"
 	storageadapter "github.com/unraid-mobile/unraid-mobile/internal/adapter/unraid/storage"
 	"github.com/unraid-mobile/unraid-mobile/internal/api"
 	"github.com/unraid-mobile/unraid-mobile/internal/app/capability"
@@ -48,8 +49,8 @@ func main() {
 	storageMetrics := storage.NewService(storageadapter.NewReader(os.DirFS("/host")), time.Now)
 	storageMetrics.Collect(ctx)
 	go storageMetrics.Run(ctx)
-	dockerMetrics := docker.NewService(dockericons.NewReader(dockeradapter.NewReader("/var/run/docker.sock"),
-		"/host/var/local/emhttp/plugins/dynamix.docker.manager"), time.Now)
+	dockerMetrics := docker.NewService(folderview.NewReader(dockericons.NewReader(dockeradapter.NewReader("/var/run/docker.sock"),
+		"/host/var/local/emhttp/plugins/dynamix.docker.manager"), "/host/boot/config/plugins/folder.view2"), time.Now)
 	go func() {
 		dockerMetrics.Collect(ctx)
 		dockerMetrics.Run(ctx)

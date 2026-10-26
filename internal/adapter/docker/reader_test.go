@@ -53,7 +53,7 @@ func TestReaderRestrictedEngine(t *testing.T) {
 			if r.URL.RawQuery != "all=1" {
 				t.Error("list must include all containers")
 			}
-			fmt.Fprintf(w, `[{"Id":%q,"Names":["/Plex"],"State":"running","Labels":{"secret":"hidden"}},{"Id":%q,"Names":["/Stopped"],"State":"exited"}]`, containerID, strings.Repeat("b", 64))
+			fmt.Fprintf(w, `[{"Id":%q,"Names":["/Plex"],"State":"running","Labels":{"secret":"hidden","folder.view2":"Photos"}},{"Id":%q,"Names":["/Stopped"],"State":"exited"}]`, containerID, strings.Repeat("b", 64))
 		case "/v1.43/containers/" + containerID + "/json":
 			fmt.Fprint(w, `{"State":{"StartedAt":"2026-10-23T23:00:00Z"},"Config":{"Env":["SECRET=hidden"]}}`)
 		case "/v1.43/containers/" + containerID + "/stats":
@@ -69,6 +69,9 @@ func TestReaderRestrictedEngine(t *testing.T) {
 	got, err := NewReader(socket).Read(context.Background())
 	if err != nil {
 		t.Fatal(err)
+	}
+	if got.Containers[0].FolderName != "Photos" {
+		t.Fatal("folder label was not read")
 	}
 	if len(got.Containers) != 2 {
 		t.Fatalf("list: %+v", got)

@@ -218,3 +218,19 @@ describe("DockerPanel", () => {
     expect(html).not.toContain("Plex");
   });
 });
+
+it("counts folders as one Home item before applying the eight-item limit",()=>{
+ const containers=Array.from({length:11},(_,index)=>({...sample.containers[0],id:String(index),name:`app${index}`}));
+ const snapshot={...sample,containers,folders:[{id:"folder-photos",name:"Photos",containerIds:["0","1","2","3"]}]};
+ const html=renderToStaticMarkup(<DockerPanel snapshot={snapshot} overview />);
+ expect(html.match(/<li /g)).toHaveLength(8);
+ expect(html).toContain('title="Photos"');
+ expect(html).not.toContain('title="app0"');
+ expect(html).not.toContain("<button");
+ expect(html).toContain("4 of 4 containers running");
+ const nine=renderToStaticMarkup(<DockerPanel snapshot={{...snapshot,containers:[...containers,{...containers[0],id:"extra",name:"extra"}]}} overview />);
+ expect(nine).toContain("Show 1 more container<");
+ const full=renderToStaticMarkup(<DockerPanel snapshot={snapshot} />);
+ expect(full).toContain("app0");
+ expect(full).not.toContain("Photos");
+});

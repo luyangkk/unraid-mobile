@@ -1,0 +1,39 @@
+
+> unraid-mobile-web@0.1.0 build
+> tsc -b && vite build && node scripts/verify-pwa.mjs
+
+vite v6.4.3 building for production...
+transforming...
+✓ 2235 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                        1.69 kB │ gzip:   0.76 kB
+dist/assets/index-Bb1ovwAw.css        26.62 kB │ gzip:   6.10 kB
+dist/assets/VMPage-JbvqcopZ.js         0.33 kB │ gzip:   0.25 kB
+dist/assets/DockerPage-DY65w1t_.js     0.34 kB │ gzip:   0.25 kB
+dist/assets/StoragePage-BgAhUJgI.js    0.34 kB │ gzip:   0.25 kB
+dist/assets/index-Tj1aV6ps.js        645.64 kB │ gzip: 205.97 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.04s
+
+PWA v2.0.0
+Building src/sw.ts service worker ("iife" format)...
+vite v6.4.3 building for production...
+transforming...
+✓ 2 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/sw.js  2.85 kB │ gzip: 1.26 kB
+✓ built in 555ms
+
+PWA v2.0.0
+mode      injectManifest
+format:   iife
+precache  12 entries (704.06 KiB)
+files generated
+  dist/sw.js
+PWA build checks passed: manifest, 5 opaque icons, 12 static precache entries, offline routes, network-only boundaries, old chunk migration, failed-install isolation, consent activation

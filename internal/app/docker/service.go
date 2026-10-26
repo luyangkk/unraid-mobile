@@ -24,6 +24,22 @@ type Container struct {
 	Diagnostics      []string `json:"diagnostics"`
 }
 
+// Folder contains only read-only grouping and icon fields from FolderView2.
+type Folder struct {
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	ContainerIDs []string `json:"containerIds"`
+	MatchPattern string   `json:"matchPattern,omitempty"`
+	IconURL      string   `json:"iconUrl,omitempty"`
+	IconVersion  string   `json:"iconVersion,omitempty"`
+}
+
+type RawFolder struct {
+	ID, Name, MatchPattern, IconURL string
+	ContainerIDs                    []string
+	IconPNG                         []byte
+}
+
 type Summary struct {
 	Running int `json:"running"`
 	Stopped int `json:"stopped"`
@@ -31,6 +47,7 @@ type Summary struct {
 }
 
 type Snapshot struct {
+	Folders     []Folder    `json:"folders,omitempty"`
 	Timestamp   time.Time   `json:"timestamp"`
 	Available   bool        `json:"available"`
 	Reason      string      `json:"reason"`
@@ -53,6 +70,7 @@ type Stats struct {
 }
 
 type RawContainer struct {
+	FolderName      string
 	IconPNG         []byte
 	ID, Name, State string
 	StartedAt       *time.Time
@@ -61,6 +79,7 @@ type RawContainer struct {
 }
 
 type Raw struct {
+	Folders     []RawFolder
 	Containers  []RawContainer
 	Diagnostics []string
 }
@@ -170,6 +189,19 @@ func (s *Service) Collect(ctx context.Context) Snapshot {
 			next.Containers = append(next.Containers, c)
 		}
 	}
+	for _, r := range raw.Folders {
+		if !next.Available {
+			break
+		}
+		f := Folder{ID: r.ID, Name: r.Name, ContainerIDs: slices.Clone(r.ContainerIDs), MatchPattern: r.MatchPattern, IconURL: r.IconURL}
+		if len(r.IconPNG) > 0 {
+			digest := sha256.Sum256(r.IconPNG)
+			f.IconVersion = hex.EncodeToString(digest[:])
+			icons[r.ID] = cachedIcon{version: f.IconVersion, png: slices.Clone(r.IconPNG)}
+		}
+		next.Folders = append(next.Folders, f)
+	}
+
 	s.previous = current
 	s.mu.Lock()
 	s.latest = next
@@ -241,6 +273,10 @@ func stringsCopy(values []string) []string {
 
 // clone isolates all snapshot fields exposed to API callers.
 func clone(s Snapshot) Snapshot {
+	s.Folders = slices.Clone(s.Folders)
+	for i := range s.Folders {
+		s.Folders[i].ContainerIDs = slices.Clone(s.Folders[i].ContainerIDs)
+	}
 	s.Diagnostics = stringsCopy(s.Diagnostics)
 	s.Containers = slices.Clone(s.Containers)
 	if s.Containers == nil {

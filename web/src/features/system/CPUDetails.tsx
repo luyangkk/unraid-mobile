@@ -24,6 +24,9 @@ export function CPUDetails({ snapshot, expanded, onExpandedChange, window, onWin
         CPU details{count != null ? <span className={`ml-2 font-normal ${muted}`}>{count} logical CPUs</span> : null}
       </summary>
       <div className="min-w-0 pt-2">
+        <p className={`mb-3 text-xs ${muted}`}>Sampled <time className="tabular-nums" dateTime={snapshot.timestamp}>
+          {snapshot.timestamp.replace("T", " ").replace(/(?:\.\d+)?Z$/, " UTC")}
+        </time></p>
         <dl className="grid min-w-0 gap-3 text-sm">
           <div className="min-w-0">
             <dt className={`text-xs ${muted}`}>Processor</dt>

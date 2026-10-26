@@ -18,6 +18,18 @@ function disclosure(host: HTMLElement) {
   return summary!.parentElement as HTMLDetailsElement;
 }
 
+// assertSampled checks the CPU-local timestamp and its live or retained-sample emphasis.
+function assertSampled(details: HTMLDetailsElement, timestamp: string, display: string, stale = false) {
+  const time = details.querySelector("time");
+  expect(time, "sampling time must be inside expanded CPU details").not.toBeNull();
+  expect(time!.getAttribute("datetime")).toBe(timestamp);
+  expect(time!.textContent).toBe(display);
+  expect(time!.parentElement?.textContent).toBe(`Sampled ${display}`);
+  expect(time!.parentElement?.className).toContain(stale ? "text-stale-text-muted" : "text-text-muted");
+  expect(time!.closest("[aria-live]")).toBeNull();
+  return time!;
+}
+
 // expand exercises the native toggle boundary and explicitly waits for its task.
 async function expand(host: HTMLElement) {
   const details = disclosure(host);
@@ -41,9 +53,11 @@ it("preserves disclosure/radio identity, focus and buffers across samples, repea
   try {
     await app.emit(cpuSample(1, 0));
     const details = await expand(app.host);
+    const time = assertSampled(details, "2026-10-26T00:00:01.000Z", "2026-10-26 00:00:01 UTC");
     const summary = details.querySelector("summary")!;
     await act(async () => summary.focus());
     await app.emit(cpuSample(2, 50));
+    expect(assertSampled(details, "2026-10-26T00:00:02.000Z", "2026-10-26 00:00:02 UTC")).toBe(time);
     expect(disclosure(app.host)).toBe(details);
     expect(document.activeElement).toBe(summary);
     const radio = await chooseWindow(app.host, 10);
@@ -55,6 +69,7 @@ it("preserves disclosure/radio identity, focus and buffers across samples, repea
     expect(app.host.querySelector('svg[aria-label*="Receive"]')?.outerHTML).toBe(networkCurve);
     await act(async () => window.dispatchEvent(new StorageEvent("storage", { key: "unraid-mobile.theme", newValue: "light" })));
     await app.emit(cpuSample(3, 75));
+    expect(assertSampled(details, "2026-10-26T00:00:03.000Z", "2026-10-26 00:00:03 UTC")).toBe(time);
     expect(disclosure(app.host)).toBe(details);
     expect(document.activeElement).toBe(radio);
     expect(radio.checked).toBe(true);
@@ -108,9 +123,11 @@ it("keeps null/gap breaks, rejects duplicate/out-of-order samples and selects ex
     await app.emit(cpuSample(21, 90));
     await app.emit(cpuSample(20, 99));
     expect(app.host.querySelector('svg[aria-label*="CPU"]')?.outerHTML).toBe(curve);
-    await expand(app.host);
+    const details = await expand(app.host);
+    const time = assertSampled(details, "2026-10-26T00:00:21.000Z", "2026-10-26 00:00:21 UTC");
     await act(async () => window.dispatchEvent(new Event("offline")));
     await settle();
+    expect(assertSampled(details, "2026-10-26T00:00:21.000Z", "2026-10-26 00:00:21 UTC", true)).toBe(time);
     const count = app.requests.length;
     await chooseWindow(app.host, 10);
     expect(app.host.querySelectorAll('svg[aria-label*="CPU"] polyline')).toHaveLength(1);
@@ -119,6 +136,7 @@ it("keeps null/gap breaks, rejects duplicate/out-of-order samples and selects ex
     expect(disclosure(app.host).closest("section")!.querySelector(".opacity-60")).toBeNull();
     await chooseWindow(app.host, 60);
     expect(app.host.querySelector('svg[aria-label*="CPU"]')?.outerHTML).toBe(curve);
+    expect(assertSampled(details, "2026-10-26T00:00:21.000Z", "2026-10-26 00:00:21 UTC", true)).toBe(time);
     expect(app.requests).toHaveLength(count);
   } finally {
     await act(async () => window.dispatchEvent(new Event("online")));
@@ -134,18 +152,37 @@ it("keeps preferences/focus through refresh failure and recovery while splitting
     const details = await expand(app.host);
     const radio = await chooseWindow(app.host, 30);
     const curve = app.host.querySelector('svg[aria-label*="CPU"]')!.outerHTML;
-    app.responses.set("/api/v1/system", new Error("CPU refresh unavailable"));
+    const time = assertSampled(details, "2026-10-26T00:00:02.000Z", "2026-10-26 00:00:02 UTC");
+    const snapshots = app.requests.filter(({ url }) => url.endsWith("/system")).length;
+    const streams = app.requests.filter(({ url }) => url.endsWith("/events")).length;
+    let rejectRefresh!: (reason: Error) => void;
+    app.responses.set("/api/v1/system", new Promise<Response>((_, reject) => { rejectRefresh = reject; }));
     await act(async () => app.host.querySelector<HTMLButtonElement>('[aria-label="Refresh status"]')!.click());
     await settle();
+    expect(assertSampled(details, "2026-10-26T00:00:02.000Z", "2026-10-26 00:00:02 UTC", true)).toBe(time);
+    expect(disclosure(app.host)).toBe(details);
+    expect(document.activeElement).toBe(radio);
+    expect(app.requests.filter(({ url }) => url.endsWith("/system"))).toHaveLength(snapshots + 1);
+    expect(app.requests.filter(({ url }) => url.endsWith("/events"))).toHaveLength(streams);
+    await act(async () => rejectRefresh(new Error("CPU refresh unavailable")));
+    await settle();
+    expect(assertSampled(details, "2026-10-26T00:00:02.000Z", "2026-10-26 00:00:02 UTC", true)).toBe(time);
     expect(disclosure(app.host)).toBe(details);
     expect(document.activeElement).toBe(radio);
     expect(app.host.querySelector('svg[aria-label*="CPU"]')?.outerHTML).toBe(curve);
     expect(app.host.textContent).toContain("Showing the last sample");
+    expect(app.requests.filter(({ url }) => url.endsWith("/system"))).toHaveLength(snapshots + 1);
+    expect(app.requests.filter(({ url }) => url.endsWith("/events"))).toHaveLength(streams);
     app.responses.set("/api/v1/system", cpuSample(10, null));
     await act(async () => app.host.querySelector<HTMLButtonElement>('[aria-label="Refresh status"]')!.click());
     await settle();
+    expect(assertSampled(details, "2026-10-26T00:00:10.000Z", "2026-10-26 00:00:10 UTC")).toBe(time);
+    expect(document.activeElement).toBe(radio);
+    expect(app.requests.filter(({ url }) => url.endsWith("/system"))).toHaveLength(snapshots + 2);
+    expect(app.requests.filter(({ url }) => url.endsWith("/events"))).toHaveLength(streams + 1);
     await app.emit(cpuSample(11, 25));
     await app.emit(cpuSample(12, 75));
+    expect(assertSampled(details, "2026-10-26T00:00:12.000Z", "2026-10-26 00:00:12 UTC")).toBe(time);
     expect(disclosure(app.host)).toBe(details);
     expect(radio.checked).toBe(true);
     expect(app.host.querySelectorAll('svg[aria-label*="CPU"] polyline')).toHaveLength(2);
@@ -165,8 +202,11 @@ it("hides unavailable System metrics and independently restarts CPU history on c
     expect(app.host.querySelector('svg[aria-label*="CPU"]')).toBeNull();
     expect(app.host.querySelector('[role="meter"]')).toBeNull();
     expect(app.host.querySelector('input[name="cpu-window"]')).toBeNull();
+    expect([...app.host.querySelectorAll("summary")].some((node) => node.textContent?.startsWith("CPU details"))).toBe(false);
+    expect(app.host.textContent).not.toContain("Sampled");
     await app.emit(cpuSample(4, null));
     expect(disclosure(app.host).open).toBe(true);
+    assertSampled(disclosure(app.host), "2026-10-26T00:00:04.000Z", "2026-10-26 00:00:04 UTC");
     expect(app.host.querySelector<HTMLInputElement>('input[value="10"]')?.checked).toBe(true);
     expect(app.host.querySelector('svg[aria-label*="CPU"]')).toBeNull();
     await app.emit(cpuSample(5));

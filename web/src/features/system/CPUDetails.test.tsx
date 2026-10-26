@@ -52,6 +52,22 @@ it("shows reported processor facts, wrapping model and a labelled native 10s/30s
   for (const radio of radios) expect(radio.closest("label")?.className).toContain("min-h-11");
 });
 
+it.each([
+  { timestamp: "2026-10-26T12:34:56.789Z", stale: false, token: "text-text-muted" },
+  { timestamp: "2026-10-26T12:34:56Z", stale: true, token: "text-stale-text-muted" },
+])("shows the original sampling instant in expanded CPU details with stale=$stale", ({ timestamp, stale, token }) => {
+  const host = panel({ ...extended, timestamp }, stale);
+  const details = host.querySelector("details")!;
+  const time = details.querySelector("time");
+  expect(time, "sampling time must be inside expanded CPU details").not.toBeNull();
+  expect(time!.getAttribute("datetime")).toBe(timestamp);
+  expect(time!.textContent).toBe("2026-10-26 12:34:56 UTC");
+  expect(time!.parentElement?.textContent).toBe("Sampled 2026-10-26 12:34:56 UTC");
+  expect(time!.parentElement?.className).toContain(`text-xs ${token}`);
+  expect(time!.className).toContain("tabular-nums");
+  expect(time!.closest("[aria-live]")).toBeNull();
+});
+
 it("sorts stable numeric CPU IDs and exposes fixed 0–100 measurement bars without unknown zeroes", () => {
   const host = panel();
   const rows = [...host.querySelectorAll('ul[aria-label="Logical CPU usage"] li')];
@@ -101,6 +117,9 @@ it("supports 4/16/64 current CPUs without truncating rows or adding per-CPU char
     expect(rows).toHaveLength(count);
     if (count === 64) expect(rows[63].textContent).toContain("100.0%");
     expect(host.querySelector("details svg")).toBeNull();
+    const time = host.querySelector("details time");
+    expect(time, "sampling time stays nearby even with 64 logical CPUs").not.toBeNull();
+    expect(time!.compareDocumentPosition(rows[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   }
 });
 
@@ -110,4 +129,6 @@ it("never reuses extended metrics or old curves while System is unavailable", ()
   expect(host.querySelector("details")).toBeNull();
   expect(host.querySelector('[role="meter"]')).toBeNull();
   expect(host.textContent).not.toContain(extended.cpuInfo.model);
+  expect(host.querySelector("time")).toBeNull();
+  expect(host.textContent).not.toContain("Sampled");
 });

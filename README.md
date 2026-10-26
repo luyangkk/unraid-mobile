@@ -261,8 +261,10 @@ across a restart. Sampling is bounded to four workers, two seconds per request
 and eight seconds per round; deferred containers get priority next round.
 The reader negotiates the daemon's supported range within API 1.24–1.44.
 Only selected display fields are exported, never environment
-variables or full inspect responses. Home icons use Unraid's existing local PNG
-cache, verified on Unraid 7.1.0; the Docker page retains its generic row icon.
+variables or full inspect responses. Home and Docker-page icons use Unraid's existing local PNG cache, verified on
+Unraid 7.1.0. Running, Stopped and Other rows share the authenticated image loader;
+collapsed Running/Stopped groups defer image requests until expanded. Background
+and offline pages pause new image requests and keep already loaded icons.
 The existing read-only `/var/local/emhttp` mount covers
 `plugins/dynamix.docker.manager/docker.json` and `images/`. The adapter reads only
 the per-container `icon` reference and accepts PNG files beneath that fixed image
@@ -277,7 +279,14 @@ no-store`. The frontend fetches it into a temporary object URL, aborts obsolete
 requests and revokes the URL when released. Icons are not cached for offline use.
 When FolderView2 is installed, optionally mount
 `/boot/config/plugins/folder.view2` at `/host/boot/config/plugins/folder.view2:ro`
-(the production template provides an empty optional path field). The sampler
+(the production template provides an empty optional path field). In Unraid,
+set **Host Path** to `/boot/config/plugins/folder.view2`, **Container Path** to
+`/host/boot/config/plugins/folder.view2`, and **Access Mode** to `Read Only`.
+Pulling a new image does not update path entries in an existing user template;
+using the host path as the container path leaves Home ungrouped. After applying
+the mapping, `GET /api/v1/docker` should contain `folders` with the expected
+members. See the [live mount correction](docs/validation/2026-10-26-folderview2-live/report.md).
+The sampler
 reads only `docker.json`, limited to 1 MiB and 64 folders; it never executes plugin
 scripts or actions. Home merges explicit members, JavaScript regex matches and
 containers carrying the matching `folder.view2` label into a single folder item.

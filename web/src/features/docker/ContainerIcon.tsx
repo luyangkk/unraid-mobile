@@ -2,13 +2,14 @@ import { Box, Folder } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { getDockerIcon, getFolderIcon, type DockerContainer } from "../../lib/api";
 import { subscribeAuthChange } from "../../lib/auth";
+import { cn } from "../../lib/utils";
 
 type IconItem = Pick<DockerContainer, "id" | "iconVersion"> & { folder?: boolean; iconUrl?: string };
 
 // ContainerIcon supports authenticated cached PNGs and configured HTTPS folder icons.
-export function ContainerIcon({ container, enabled }: { container: IconItem; enabled: boolean }) {
+export function ContainerIcon({ container, enabled, className }: { container: IconItem; enabled: boolean; className?: string }) {
   return (
-    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-muted text-text-muted" aria-hidden="true">
+    <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg bg-surface-muted text-text-muted", className)} aria-hidden="true">
       {container.iconVersion || (container.folder && container.iconUrl)
         ? <PNGIcon key={`${container.id}:${container.iconVersion || container.iconUrl}`} id={container.id}
             version={container.iconVersion ?? ""} source={container.iconVersion ? undefined : container.iconUrl}
@@ -47,7 +48,7 @@ function PNGIcon({ id, version, source, folder, enabled }: {
   }, [id, version, source, enabled, result]);
   useEffect(() => () => { if (objectURL.current) URL.revokeObjectURL(objectURL.current); }, []);
   return result?.src
-    ? <img src={result.src} alt="" className="size-8 object-contain" onError={() => {
+    ? <img src={result.src} alt="" className="size-full object-contain" onError={() => {
       if (objectURL.current) URL.revokeObjectURL(objectURL.current);
       objectURL.current = null;
       setResult({ src: null });

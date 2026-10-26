@@ -1,4 +1,3 @@
-import { Box } from "lucide-react";
 import { useId, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { ContainerIcon } from "./ContainerIcon";
@@ -33,6 +32,7 @@ export function DockerPanel({
   loadIcons?: boolean;
 }) {
   const [runningCollapsed, setRunningCollapsed] = useState(() => overview ? false : readRunningCollapsed("docker"));
+  const [stoppedExpanded, setStoppedExpanded] = useState(false);
   const groups: Record<"running" | "stopped" | "other", DockerContainer[]> = {
     running: [],
     stopped: [],
@@ -92,18 +92,18 @@ export function DockerPanel({
                   {groups.running.length === 0 ? (
                     <p className="pb-3 text-sm text-text-muted">No running containers</p>
                   ) : groups.running.map((container) => (
-                    <ContainerRow key={container.id} container={container} />
+                    <ContainerRow key={container.id} container={container} loadIcons={loadIcons && !runningCollapsed} />
                   ))}
                 </details>}
                 {!overview ? (
-                  <details className="mt-2 border-t border-border">
+                  <details className="mt-2 border-t border-border" open={stoppedExpanded} onToggle={(event) => setStoppedExpanded(event.currentTarget.open)}>
                     <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
                       Stopped ({groups.stopped.length})
                     </summary>
                     {groups.stopped.length === 0 ? (
                       <p className="pb-3 text-sm text-text-muted">No stopped containers</p>
                     ) : groups.stopped.map((container) => (
-                      <ContainerRow key={container.id} container={container} />
+                      <ContainerRow key={container.id} container={container} loadIcons={loadIcons && stoppedExpanded} />
                     ))}
                   </details>
                 ) : null}
@@ -111,7 +111,7 @@ export function DockerPanel({
                   <div className="mt-2 border-t border-border pt-3">
                     <h3 className="mb-3 text-sm font-medium">Other ({groups.other.length})</h3>
                     {groups.other.map((container) => (
-                      <ContainerRow key={container.id} container={container} />
+                      <ContainerRow key={container.id} container={container} loadIcons={loadIcons} />
                     ))}
                   </div>
                 ) : null}
@@ -132,14 +132,12 @@ export function DockerPanel({
   );
 }
 
-// ContainerRow uses stable metric columns and a generic local container icon.
-function ContainerRow({ container }: { container: DockerContainer }) {
+// ContainerRow reuses the authenticated icon loader without changing metric columns.
+function ContainerRow({ container, loadIcons }: { container: DockerContainer; loadIcons: boolean }) {
   return (
     <article className="mb-3 rounded-xl bg-surface-muted/60 p-3 text-sm">
       <div className="flex items-center gap-3">
-        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-muted text-text-muted">
-          <Box className="size-5" aria-hidden="true" />
-        </div>
+        <ContainerIcon container={container} enabled={loadIcons} className="size-10 rounded-xl" />
         <div className="min-w-0">
           <h4 className="break-words font-medium">{container.name}</h4>
           <p className={`mt-0.5 text-xs ${container.state === "running" ? "text-success" : "text-warning"}`}>

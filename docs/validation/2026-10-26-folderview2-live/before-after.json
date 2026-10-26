@@ -1,0 +1,21 @@
+{
+  "origin": "http://10.0.0.66:18080",
+  "before": {
+    "sampledAt": "2026-10-26T00:36:41.159570387Z",
+    "available": true,
+    "foldersPresent": false,
+    "hostPath": "/boot/config/plugins/folder.view2",
+    "containerPath": "/boot/config/plugins/folder.view2",
+    "accessMode": "Read Only"
+  },
+  "after": {
+    "sampledAt": "2026-10-26T00:39:29.799048002Z",
+    "available": true,
+    "folderCount": 1,
+    "folderName": "Immich",
+    "memberCount": 4,
+    "hostPath": "/boot/config/plugins/folder.view2",
+    "containerPath": "/host/boot/config/plugins/folder.view2",
+    "accessMode": "Read Only"
+  }
+}

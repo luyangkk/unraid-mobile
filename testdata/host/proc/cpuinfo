@@ -1,0 +1,7 @@
+processor : 0
+model name : Synthetic Fixture CPU
+cpu MHz : 2000.000
+
+processor : 2
+model name : Synthetic Fixture CPU
+cpu MHz : 3000.000

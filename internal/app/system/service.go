@@ -31,6 +31,8 @@ type Raw struct {
 	Hostname                     string
 	UptimeSeconds                *float64
 	CPUTotal, CPUIdle            uint64
+	CPUInfo                      *CPUInfo
+	CPULogicalProcessors         []CPULogicalProcessorRaw
 	MemoryTotal, MemoryAvailable uint64
 	NetworkInterface             string
 	NetworkRX, NetworkTX         uint64
@@ -41,20 +43,22 @@ type Raw struct {
 }
 
 type Snapshot struct {
-	Timestamp         time.Time                  `json:"timestamp"`
-	Available         bool                       `json:"available"`
-	Reason            string                     `json:"reason,omitempty"`
-	Hostname          string                     `json:"hostname"`
-	UptimeSeconds     *float64                   `json:"uptimeSeconds"`
-	CPUUsage          *float64                   `json:"cpuUsage"`
-	CPUTemperature    *float64                   `json:"cpuTemperature"`
-	MemoryUsedBytes   uint64                     `json:"memoryUsedBytes"`
-	MemoryTotalBytes  uint64                     `json:"memoryTotalBytes"`
-	NetworkInterface  string                     `json:"networkInterface"`
-	NetworkRXRate     *float64                   `json:"networkRXRate"`
-	NetworkTXRate     *float64                   `json:"networkTXRate"`
-	NetworkInterfaces []NetworkInterfaceSnapshot `json:"networkInterfaces"`
-	Diagnostics       map[string]string          `json:"diagnostics"`
+	Timestamp            time.Time                     `json:"timestamp"`
+	Available            bool                          `json:"available"`
+	Reason               string                        `json:"reason,omitempty"`
+	Hostname             string                        `json:"hostname"`
+	UptimeSeconds        *float64                      `json:"uptimeSeconds"`
+	CPUUsage             *float64                      `json:"cpuUsage"`
+	CPUTemperature       *float64                      `json:"cpuTemperature"`
+	CPUInfo              *CPUInfo                      `json:"cpuInfo"`
+	CPULogicalProcessors []CPULogicalProcessorSnapshot `json:"cpuLogicalProcessors"`
+	MemoryUsedBytes      uint64                        `json:"memoryUsedBytes"`
+	MemoryTotalBytes     uint64                        `json:"memoryTotalBytes"`
+	NetworkInterface     string                        `json:"networkInterface"`
+	NetworkRXRate        *float64                      `json:"networkRXRate"`
+	NetworkTXRate        *float64                      `json:"networkTXRate"`
+	NetworkInterfaces    []NetworkInterfaceSnapshot    `json:"networkInterfaces"`
+	Diagnostics          map[string]string             `json:"diagnostics"`
 }
 
 type Reader interface {
@@ -73,6 +77,8 @@ type Service struct {
 	now         func() time.Time
 	previous    *Raw
 	previousAt  time.Time
+	cpu         *cpuBaseline
+	logicalCPU  map[int]cpuBaseline
 	network     map[string]networkBaseline
 	latest      Snapshot
 	subscribers map[chan Snapshot]struct{}
@@ -84,12 +90,15 @@ func (s Snapshot) MarshalJSON() ([]byte, error) {
 	if s.NetworkInterfaces == nil {
 		s.NetworkInterfaces = []NetworkInterfaceSnapshot{}
 	}
+	if s.CPULogicalProcessors == nil {
+		s.CPULogicalProcessors = []CPULogicalProcessorSnapshot{}
+	}
 	return json.Marshal(snapshotJSON(s))
 }
 
 // NewService owns the latest snapshot and one-second sampler baselines.
 func NewService(reader Reader, now func() time.Time) *Service {
-	return &Service{reader: reader, now: now, latest: Snapshot{Reason: "Waiting for first host sample", Diagnostics: map[string]string{}, NetworkInterfaces: []NetworkInterfaceSnapshot{}}, subscribers: make(map[chan Snapshot]struct{})}
+	return &Service{reader: reader, now: now, latest: Snapshot{Reason: "Waiting for first host sample", Diagnostics: map[string]string{}, NetworkInterfaces: []NetworkInterfaceSnapshot{}, CPULogicalProcessors: []CPULogicalProcessorSnapshot{}}, subscribers: make(map[chan Snapshot]struct{})}
 }
 
 // Collect samples once and publishes independently owned complete snapshots.
@@ -98,10 +107,12 @@ func (s *Service) Collect(ctx context.Context) Snapshot {
 	defer s.mu.Unlock()
 	raw, err := s.reader.Read(ctx)
 	now := s.now().UTC()
-	next := Snapshot{Timestamp: now, Diagnostics: map[string]string{}, NetworkInterfaces: []NetworkInterfaceSnapshot{}}
+	next := Snapshot{Timestamp: now, Diagnostics: map[string]string{}, NetworkInterfaces: []NetworkInterfaceSnapshot{}, CPULogicalProcessors: []CPULogicalProcessorSnapshot{}}
 	if err != nil {
 		next.Reason = err.Error()
 		s.previous = nil
+		s.cpu = nil
+		s.logicalCPU = nil
 		s.network = nil
 	} else {
 		next.Available = true
@@ -118,13 +129,6 @@ func (s *Service) Collect(ctx context.Context) Snapshot {
 			next.Diagnostics = map[string]string{}
 		}
 		if prev := s.previous; prev != nil && now.After(s.previousAt) {
-			if raw.CPUTotal > prev.CPUTotal && raw.CPUIdle >= prev.CPUIdle {
-				total, idle := raw.CPUTotal-prev.CPUTotal, raw.CPUIdle-prev.CPUIdle
-				if idle <= total {
-					value := 100 * float64(total-idle) / float64(total)
-					next.CPUUsage = &value
-				}
-			}
 			if raw.NetworkInterfaces == nil && raw.NetworkAvailable && prev.NetworkAvailable && raw.NetworkInterface == prev.NetworkInterface && raw.NetworkRX >= prev.NetworkRX && raw.NetworkTX >= prev.NetworkTX {
 				seconds := now.Sub(s.previousAt).Seconds()
 				rx := float64(raw.NetworkRX-prev.NetworkRX) / seconds
@@ -133,9 +137,10 @@ func (s *Service) Collect(ctx context.Context) Snapshot {
 				next.NetworkTXRate = &tx
 			}
 		}
+		s.collectCPU(raw, now, &next)
 		s.collectNetwork(raw, now, &next)
-		// Retain only scalar CPU and legacy counters, never caller-owned slices or pointers.
-		s.previous = &Raw{CPUTotal: raw.CPUTotal, CPUIdle: raw.CPUIdle, NetworkInterface: raw.NetworkInterface,
+		// Retain only legacy network counters, never caller-owned slices or pointers.
+		s.previous = &Raw{NetworkInterface: raw.NetworkInterface,
 			NetworkAvailable: raw.NetworkAvailable, NetworkRX: raw.NetworkRX, NetworkTX: raw.NetworkTX}
 		s.previousAt = now
 	}
@@ -208,6 +213,11 @@ func clone(s Snapshot) Snapshot {
 	s.UptimeSeconds = copyPointer(s.UptimeSeconds)
 	s.CPUUsage = copyPointer(s.CPUUsage)
 	s.CPUTemperature = copyPointer(s.CPUTemperature)
+	s.CPUInfo = cloneCPUInfo(s.CPUInfo)
+	s.CPULogicalProcessors = slices.Clone(s.CPULogicalProcessors)
+	for i := range s.CPULogicalProcessors {
+		s.CPULogicalProcessors[i].Usage = copyPointer(s.CPULogicalProcessors[i].Usage)
+	}
 	s.NetworkRXRate = copyPointer(s.NetworkRXRate)
 	s.NetworkTXRate = copyPointer(s.NetworkTXRate)
 	s.NetworkInterfaces = slices.Clone(s.NetworkInterfaces)

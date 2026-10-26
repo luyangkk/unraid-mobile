@@ -38,20 +38,10 @@ func (r *Reader) Read(ctx context.Context) (domain.Raw, error) {
 	if err != nil {
 		return raw, fmt.Errorf("Host CPU unavailable; mount /proc at /host/proc read-only: %w", err)
 	}
-	fields := strings.Fields(strings.SplitN(stat, "\n", 2)[0])
-	if len(fields) < 5 || fields[0] != "cpu" {
-		return raw, fmt.Errorf("invalid host CPU counters")
+	if err := cpuStat(stat, &raw); err != nil {
+		return raw, err
 	}
-	for i := 1; i < len(fields) && i <= 8; i++ {
-		value, e := strconv.ParseUint(fields[i], 10, 64)
-		if e != nil {
-			return raw, fmt.Errorf("invalid host CPU counter: %w", e)
-		}
-		raw.CPUTotal += value
-		if i == 4 || i == 5 {
-			raw.CPUIdle += value
-		}
-	}
+	r.cpuInfo(&raw)
 	memory, err := r.text("proc/meminfo")
 	if err != nil {
 		return raw, fmt.Errorf("host memory unavailable: %w", err)

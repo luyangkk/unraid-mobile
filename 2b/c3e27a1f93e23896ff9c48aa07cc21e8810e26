@@ -1,0 +1,88 @@
+README.md
+  s_e23554cd493e19::t_12fbfa3dfe3bfa 6,8,19,68,360-396
+docs/validation/2026-10-26-network-trends.md
+  s_e23554cd493e19::t_b144060f88e5c6 1-6,8-21,23-49
+  s_6d61110a10b0fb::t_c70f5d7de44d2f 7,22 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"call_NxW6nFqEVzyWg2aDslxxyu0t","tool_type":"agent","tool_id":"apply_patch","line_ranges":[{"Single":7},{"Single":22}]}]}
+docs/superpowers/plans/2026-10-26-network-trends.md
+  h_032fa1196b6932 1-72
+docs/superpowers/specs/2026-10-26-network-trends-design.md
+  h_032fa1196b6932 1-90
+AGENTS.md
+  h_032fa1196b6932 17,27-28,42-43,75,82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2bc3e27a1f93e23896ff9c48aa07cc21e8810e26",
+  "prompts": {},
+  "humans": {
+    "h_032fa1196b6932": {
+      "author": "John Lu <luyangkk@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_6d61110a10b0fb": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6adecba9836649c9d79e9e24",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "John Lu <luyangkk@gmail.com>"
+    },
+    "s_e23554cd493e19": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6adecc60836649c9d79e9e5f",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "John Lu <luyangkk@gmail.com>"
+    }
+  },
+  "attestation_metadata": {
+    "docs/validation/2026-10-26-network-trends.md": [
+      {
+        "hash": "s_6d61110a10b0fb::t_c70f5d7de44d2f",
+        "line_ranges": [
+          {
+            "Single": 7
+          },
+          {
+            "Single": 22
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "call_NxW6nFqEVzyWg2aDslxxyu0t",
+            "tool_type": "agent",
+            "tool_id": "apply_patch",
+            "line_ranges": [
+              {
+                "Single": 7
+              },
+              {
+                "Single": 22
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "remote_transcripts": {
+    "s_6d61110a10b0fb": {
+      "tool": "trae",
+      "conversation_id": "6adecba9836649c9d79e9e24",
+      "session_id": "6adecba9836649c9d79e9e24",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_6d61110a10b0fb::t_c70f5d7de44d2f": {
+      "tool": "trae",
+      "conversation_id": "6adecba9836649c9d79e9e24",
+      "session_id": "6adecba9836649c9d79e9e24",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    }
+  }
+}

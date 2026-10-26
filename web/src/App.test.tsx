@@ -16,6 +16,11 @@ describe("primary tab gestures", () => {
   it.each(["main", "nav a"])("reserves horizontal touch movement on %s before Safari can take over scrolling", async (selector) => {
     const app = await mountApp("/docker");
     try {
+      // Lazy route loading must finish before the first gesture reserves native scrolling.
+      await vi.waitFor(async () => {
+        await settle();
+        expect(app.host.querySelector("main")?.textContent).toContain("Docker");
+      });
       const target = app.host.querySelector(selector)!;
       await pointer(target, "pointerdown", { x: 220 });
       // The first native touchmove can arrive before our 12px recognition threshold.

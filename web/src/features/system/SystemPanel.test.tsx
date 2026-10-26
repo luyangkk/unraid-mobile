@@ -4,6 +4,12 @@ import { expect, it } from "vitest";
 import { SystemPanel } from "./SystemPanel";
 import type { SystemSnapshot } from "../../lib/api";
 import type { NetworkPoint } from "../../lib/network";
+import { appendPoint, type CPUWindow, type Point } from "../../lib/system";
+
+// cpuPoint creates synthetic instants with millisecond precision for coverage tests.
+function cpuPoint(second: number, value: number | null = 25): Point {
+  return { timestamp: new Date(Date.UTC(2026, 9, 26) + second * 1000).toISOString(), value };
+}
 
 const sample: SystemSnapshot = {
   timestamp: "2026-10-24T00:00:00Z",
@@ -151,6 +157,80 @@ it("labels CPU temperature and selected history, with equal-height collecting an
   expect(host.querySelector('svg[aria-label*="CPU"]')?.classList.contains("h-10")).toBe(true);
   expect(host.textContent).toContain("Last 10s");
   expect(host.textContent).toContain("Collecting history…");
+});
+
+it.each<CPUWindow>([10, 30, 60])("keeps collecting history for a %ss window with a long interior gap", (cpuWindow) => {
+  const points = [0, 1, cpuWindow - 1, cpuWindow].map((second) => cpuPoint(second));
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(<SystemPanel snapshot={sample} points={points} {...networkProps} cpuWindow={cpuWindow} />);
+  expect(host.textContent).toContain("Collecting history…");
+  expect(host.querySelectorAll('svg[aria-label*="CPU"] polyline')).toHaveLength(2);
+});
+
+it.each<CPUWindow>([10, 30, 60])("keeps collecting history for a %ss window with interior null samples", (cpuWindow) => {
+  const points = Array.from({ length: cpuWindow }, (_, second) =>
+    cpuPoint(second, second < 2 || second >= cpuWindow - 2 ? 25 : null));
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(<SystemPanel snapshot={sample} points={points} {...networkProps} cpuWindow={cpuWindow} />);
+  expect(host.textContent).toContain("Collecting history…");
+  expect(host.querySelectorAll('svg[aria-label*="CPU"] polyline')).toHaveLength(2);
+});
+
+it.each([0, 59])("keeps collecting history when endpoint %s is null despite a complete span", (second) => {
+  const points = Array.from({ length: 60 }, (_, index) => cpuPoint(index, index === second ? null : 25));
+  const html = renderToStaticMarkup(<SystemPanel snapshot={sample} points={points} {...networkProps} />);
+  expect(html).toContain("Collecting history…");
+});
+
+it.each([NaN, Infinity, -1])("keeps collecting history when an interior value is unusable (%s)", (value) => {
+  const points = Array.from({ length: 60 }, (_, second) => cpuPoint(second, second === 30 ? value : 25));
+  const html = renderToStaticMarkup(<SystemPanel snapshot={sample} points={points} {...networkProps} />);
+  expect(html).toContain("Collecting history…");
+});
+
+it.each([
+  { gapMs: 3000, collecting: false, segments: 1 },
+  { gapMs: 3001, collecting: true, segments: 2 },
+])("uses the exact $gapMs ms gap boundary for collecting history and CPU segments", ({ gapMs, collecting, segments }) => {
+  const points = [0, 1, 1 + gapMs / 1000, 5, 6, 7, 8, 9].map((second) => cpuPoint(second));
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(<SystemPanel snapshot={sample} points={points} {...networkProps} cpuWindow={10} />);
+  expect(host.textContent?.includes("Collecting history…")).toBe(collecting);
+  expect(host.querySelectorAll('svg[aria-label*="CPU"] polyline')).toHaveLength(segments);
+});
+
+it.each<CPUWindow>([10, 30, 60])("completes continuous %ss history with the one-slot span allowance and measured zeros", (cpuWindow) => {
+  let points: Point[] = [];
+  for (let second = 0; second <= 60; second++) points = appendPoint(points, cpuPoint(second, 0));
+  expect(points).toHaveLength(60);
+  expect(Date.parse(points.at(-1)!.timestamp) - Date.parse(points[0].timestamp)).toBe(59000);
+  points = points.slice(-cpuWindow);
+  expect(Date.parse(points.at(-1)!.timestamp) - Date.parse(points[0].timestamp)).toBe((cpuWindow - 1) * 1000);
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(<SystemPanel snapshot={sample} points={points} {...networkProps} cpuWindow={cpuWindow} />);
+  expect(host.textContent).not.toContain("Collecting history…");
+  expect(host.querySelectorAll('svg[aria-label*="CPU"] polyline')).toHaveLength(1);
+});
+
+it.each<CPUWindow>([10, 30, 60])("keeps collecting history just below the %ss one-slot span allowance", (cpuWindow) => {
+  const points = Array.from({ length: cpuWindow }, (_, second) => cpuPoint(second === 0 ? 0.001 : second));
+  const html = renderToStaticMarkup(<SystemPanel snapshot={sample} points={points} {...networkProps} cpuWindow={cpuWindow} />);
+  expect(html).toContain("Collecting history…");
+});
+
+it.each<CPUWindow>([10, 30, 60])("checks collecting history over the full selected %ss duration, not the one-slot allowance", (cpuWindow) => {
+  const points = [
+    cpuPoint(-1.001, null),
+    cpuPoint(-1, null),
+    ...Array.from({ length: cpuWindow }, (_, second) => cpuPoint(second)),
+  ];
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(<SystemPanel snapshot={sample} points={points} {...networkProps} cpuWindow={cpuWindow} />);
+  expect(host.textContent).toContain("Collecting history…");
+  expect(host.querySelectorAll('svg[aria-label*="CPU"] polyline')).toHaveLength(1);
+  host.innerHTML = renderToStaticMarkup(<SystemPanel snapshot={sample} points={points.filter((point) => point.value !== null)}
+    {...networkProps} cpuWindow={cpuWindow} />);
+  expect(host.textContent).not.toContain("Collecting history…");
 });
 
 it("splits CPU null intervals and shows only the selected buffered window at a fixed percentage scale", () => {

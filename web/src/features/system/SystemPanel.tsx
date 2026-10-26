@@ -1,6 +1,6 @@
 import type { NetworkInterfaceSnapshot, SystemSnapshot } from "../../lib/api";
 import { filterCPUWindow, formatBytes, formatRate, type CPUWindow, type Point } from "../../lib/system";
-import { networkMaximum, trendSegments, type NetworkPoint, type TrendPoint } from "../../lib/network";
+import { networkMaximum, trendLimits, trendSegments, type NetworkPoint, type TrendPoint } from "../../lib/network";
 import { NetworkInterfaceSelector } from "./NetworkInterfaceSelector";
 import { CPUDetails } from "./CPUDetails";
 
@@ -52,6 +52,10 @@ export function SystemPanel({
       : 0;
   const maximum = networkMaximum(networkPoints);
   const cpuPoints = filterCPUWindow(points, cpuWindow);
+  const cpuHistoryComplete = cpuPoints.length >= 2
+    && Date.parse(cpuPoints.at(-1)!.timestamp) - Date.parse(cpuPoints[0].timestamp) >= (cpuWindow - 1) * 1000
+    && cpuPoints.every((point, index) => point.value !== null && Number.isFinite(point.value) && point.value >= 0
+      && (index === 0 || Date.parse(point.timestamp) - Date.parse(cpuPoints[index - 1].timestamp) <= trendLimits.gapMs));
   const muted = stale ? "text-stale-text-muted" : "text-text-muted";
   return (
     <section className={`min-w-0 rounded-2xl border border-border bg-surface p-5 ${stale ? "text-stale-foreground" : "text-foreground"}`}>
@@ -72,7 +76,7 @@ export function SystemPanel({
           </p>
           <Sparkline points={cpuPoints} maximum={100} label={`CPU usage over the latest ${cpuWindow} seconds`} stale={stale} />
           <p className={`mt-2 text-xs ${muted}`}>Last {cpuWindow}s</p>
-          {cpuPoints.length < 2 || Date.parse(cpuPoints.at(-1)!.timestamp) - Date.parse(cpuPoints[0].timestamp) < (cpuWindow - 1) * 1000
+          {!cpuHistoryComplete
             ? <p className={`mt-1 text-xs ${muted}`}>Collecting history…</p> : null}
         </div>
         <div className="min-w-0">

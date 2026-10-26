@@ -7,11 +7,11 @@ import {
   connectionLabel,
   filterCPUWindow,
 } from "./system";
-import type { Point } from "./system";
+import type { CPUWindow, Point } from "./system";
 
-// timestamp supplies real UTC instants for history boundary tests.
+// timestamp supplies millisecond-precise UTC instants for history boundary tests.
 function timestamp(second: number) {
-  return new Date(Date.UTC(2026, 9, 26, 0, 0, second)).toISOString();
+  return new Date(Date.UTC(2026, 9, 26) + second * 1000).toISOString();
 }
 
 describe("system presentation", () => {
@@ -64,6 +64,20 @@ describe("system presentation", () => {
     expect(filterCPUWindow(points, 60)).toHaveLength(8);
     expect(points[5].value).toBeNull();
     expect(filterCPUWindow([], 60)).toEqual([]);
+  });
+  it.each<CPUWindow>([10, 30, 60])("retains nulls at the full %ss cutoff without applying the one-slot completeness allowance", (seconds) => {
+    const cutoff = 60 - seconds;
+    const points = [
+      { timestamp: timestamp(cutoff - 0.001), value: 25 },
+      { timestamp: timestamp(cutoff), value: null },
+      { timestamp: timestamp(cutoff + 0.5), value: null },
+      { timestamp: timestamp(59), value: 0 },
+      { timestamp: timestamp(60), value: 25 },
+    ];
+    const original = points.map((point) => ({ ...point }));
+    expect(filterCPUWindow(points, seconds)).toEqual(points.slice(1));
+    expect(filterCPUWindow(points, seconds)[0]).toBe(points[1]);
+    expect(points).toEqual(original);
   });
   it("does not label a disconnected or unavailable host online", () => {
     expect(connectionLabel("offline", true)).toBe("Offline");

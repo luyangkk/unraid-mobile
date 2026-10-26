@@ -65,7 +65,7 @@ All running containers appear in an expandable Running group; save its collapsed
 ## Verification Record
 
 - Go implementation and frontend/deployment integration completed in the existing workspace.
-- Go race suite, both binary builds, frontend 27-test suite/build, XML parsing and shell syntax checks passed.
+- Go race suite, server build, frontend 27-test suite/build, XML parsing and shell syntax checks passed.
 - Real Chrome checks with synthetic API fixtures passed at 320px and 390px: no horizontal overflow, grouping, persisted Running collapse, Stopped expansion surviving refresh, failed/recovered refresh, hidden polling pause and visible refresh.
 - Built Go process smoke passed: health 204, missing-socket snapshot, explicit disabled action flags and rejected action POSTs.
 - Independent reviews identified lost request messages/timestamps, startup identity races and unfair telemetry scheduling. Fixes preserve request errors and unavailable sampling timestamps, verify startup identity after stats, and prioritize the first container deferred by the previous sampling budget.
@@ -85,7 +85,7 @@ All running containers appear in an expandable Running group; save its collapsed
 - [x] Write and observe failing service tests for CPU delta/system delta times online CPUs, memory usage minus inactive_file cache (v1 fallback cache), aggregate network counters, resets/restarts/recovery, empty configuration and defensive cached copies.
 - [x] Implement sampler: two-second ticker, skip stats for non-running states; use per-container Engine read timestamp for network elapsed time and stable identity including start time. Do not hold snapshot lock across external I/O.
 - [x] Write and observe failing API tests for cached Docker snapshots, missing adapter, dynamic capability, denied writes for read-only adapter, JSON whitelist and nonblocking health.
-- [x] Implement API and process lifecycle integration; update existing fake-action tests to opt in explicitly to action flags. Run `gofmt`, `go test -race ./...`, and build both binaries with output outside workspace.
+- [x] Implement API and process lifecycle integration; update existing fake-action tests to opt in explicitly to action flags. Run `gofmt`, `go test -race ./...`, and `go build ./cmd/server` with output outside workspace.
 
 ### Task 2: Docker panel and querying
 
@@ -103,7 +103,7 @@ All running containers appear in an expandable Running group; save its collapsed
 
 **Files:** Modify `deploy/unraid/unraid-mobile.xml`, `README.md`, `AGENTS.md`, `scripts/verify-image.sh`; focused current-slice addendum in `docs/spec-20260921-mvp.md`.
 
-- [x] Add optional fixed Docker socket mount to production XML with Privileged=false, and update install/upgrade instructions. Keep development/Spike privileges unchanged.
+- [x] Add optional fixed Docker socket mount to production XML with Privileged=false, and update install/upgrade instructions. Keep development privileges unchanged.
 - [x] Add missing-Docker snapshot smoke assertion; maintain existing checks.
 - [x] Explain polling and read/action capability separation; do not claim target-host verification.
 - [x] Run XML parsing, Go race tests/builds, frontend tests/build; Docker build/smoke/compose validation if available (Docker CLI unavailable).

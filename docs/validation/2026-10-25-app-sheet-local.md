@@ -12,8 +12,8 @@ unverified.
 - `npm run build`: passed, including PWA artifact checks, all route chunks and
   the existing network-only API/health/SSE/credential boundaries.
 - `go test -race ./...`: passed.
-- `go build ./cmd/server` and `go build ./cmd/host-spike`: passed; output binaries
-  were directed to `/tmp`.
+- `go build ./cmd/server`: passed; the server binary
+  was directed to `/tmp`.
 - Unraid XML parse and `git diff --check`: passed.
 - `docker build -t unraid-mobile:local .`,
   `sh scripts/verify-image.sh unraid-mobile:local`, and `docker compose config`:

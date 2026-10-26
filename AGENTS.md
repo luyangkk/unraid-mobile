@@ -14,17 +14,18 @@
 - `cmd/server` 装配依赖；`internal/api` 提供 HTTP/SSE；`internal/app` 定义模型、接口和用例；`internal/adapter` 实现宿主机读取。API 调用 app，Adapter 实现 app 接口；app 不导入 Adapter、Unraid 路径或外部客户端。
 - VM 每三秒后台采样，`GET /vms` 只读缓存；仅连接 `/var/run/libvirt/libvirt-sock-ro`，不回退到可写 socket 或 CLI。只解析 CPU 和内存分配字段，不导出 XML；无法可靠获取的 uptime 返回 `null`。`vmActions.start/stop/forceStop` 独立于读取能力，默认关闭。生产可选只读挂载 `/var/run/libvirt`，需真实主机验证；`VM_READ_ENABLED` 默认关闭，显式设为 `true` 才开始采集。
 - 前端业务面板放在 `web/src/features`，通用组件放在 `web/src/components/ui`，API、订阅和格式化工具放在 `web/src/lib`。复用现有组件和相对导入，不新增状态层或顺手升级依赖。
-- `web/src/app` 提供持久 App Shell 和路由，`routes` 提供页面，`components/app` 提供通用导航。QueryClient 全局共享，SessionGate 在路由外；System SSE 与 CPU 趋势由 Shell 持有，切页不重建订阅或清空缓存。
+- `web/src/app` 提供持久 App Shell 和路由，`routes` 提供页面，`components/app` 提供通用导航。QueryClient 全局共享，SessionGate 在路由外；System SSE、CPU／网络趋势及网络接口选择由 Shell 持有，切页不重建订阅或清空缓存。
 - 一个生产容器、一个 Go 进程同时提供 API 与嵌入的静态资源。Dockerfile 将 Vite 产物复制到 `cmd/server/web` 后编译；不手改 `web/dist` 或嵌入产物，生产不运行 Vite。
 - Go 仅对合法且无扩展名的 GET/HEAD 客户端路径回退到嵌入首页；`/assets` 下缺失文件、目录和非法路径返回真实 404。API 在静态路径校验前分流，health 保持 204。
 - PWA 固定使用 `/manifest.webmanifest`、`/sw.js` 和 `/icons/*.png`，scope 和 start URL 均为 `/`；启用 `APP_TOKEN` 后仍公开。Go 显式返回 manifest 的 `application/manifest+json` 和 worker 的 JavaScript MIME，`/sw.js` 使用 `Cache-Control: no-cache`；不能改变 API 认证、SSE 或静态路径校验边界。
-- 生产以 `deploy/unraid/unraid-mobile.xml` 为准：`Privileged=false`，只读挂载 `/proc → /host/proc`、`/sys → /host/sys`、`/var/local/emhttp → /host/var/local/emhttp`，Docker 展示可选挂载 `/var/run/docker.sock → /var/run/docker.sock:ro`。只读 socket 挂载不限制 API 权限，应用只能发送固定读取请求。`compose.yaml` 的高权限和额外挂载用于开发/Spike，不能作为生产权限模板。
-- `cmd/host-spike`、`internal/spike` 不属于生产请求链路。高权限 Spike 仅在用户明确授权的 Unraid 测试主机运行；`testdata/host` 保持合成数据，不替换为开发机或 CI 的真实数据。
+- 生产以 `deploy/unraid/unraid-mobile.xml` 为准：`Privileged=false`，只读挂载 `/proc → /host/proc`、`/sys → /host/sys`、`/var/local/emhttp → /host/var/local/emhttp`，Docker 展示可选挂载 `/var/run/docker.sock → /var/run/docker.sock:ro`。只读 socket 挂载不限制 API 权限，应用只能发送固定读取请求。`compose.yaml` 的高权限和额外挂载用于开发，不能作为生产权限模板。
+- 宿主机兼容性通过主应用只读页面/API 与 Unraid WebGUI 人工对照验收，步骤见 [README](README.md#manual-host-acceptance)。记录镜像版本、采样时间、模块可用性、diagnostics 和未验证场景；`/healthz` 仅证明进程存活，HTTP `200` 或旧样本不代表采集正常。实际挂载和权限另行核对，不通过取温度唤醒休眠盘，不把读取验收当作写能力授权。`testdata/host` 保持合成数据，不替换为开发机或 CI 的真实数据。
 
 ## 数据与 API
 
 - 宿主机读取仅使用挂载数据，不回退到容器 `/proc`、`/sys`。System 每秒、Storage 每两秒后台采样；请求只读最新缓存，不按请求或订阅重复采样。
-- System 内存采用 `MemTotal - MemAvailable`；网络只统计 `/host/proc/1/net/route` 中有效且 metric 最低的默认 IPv4 接口，计数器来自 `/host/proc/1/net/dev`。CPU 温度按传感器标签/类型识别，不假定 `thermal_zone0`。
+- System 内存采用 `MemTotal - MemAvailable`；网络每秒一次读取 `/host/proc/1/net/dev` 的全部接口计数器，逐接口保存相邻采样基线并按实际时间差计算速率。Auto 依据 `/host/proc/1/net/route` 中有效且 metric 最低的默认 IPv4 路由选择接口；路由缺失不影响其他接口手动展示。CPU 温度按传感器标签/类型识别，不假定 `thermal_zone0`。
+- System 的 `networkInterfaces` 返回稳定名称顺序的接口可用性、原因及 nullable RX／TX 字节每秒；旧 `networkInterface/networkRXRate/networkTXRate` 由同一计算结果投影，继续表达 Auto。局部计数器失败、移除、恢复或回退仅重建对应接口基线，真实无变化返回零；可读的挂载 sysfs ifindex 变化触发重建，但 ifindex 可重用、命名空间可能不同，不宣称可靠识别所有同名替换。数组、map 及可选指标指针均防御性复制。
 - CPU、网络、磁盘 I/O 使用有效相邻样本计算；首样本、计数器回退或采集恢复返回 `null`，网卡/磁盘身份变化后重建对应基线，不伪造零值。
 - Storage 只读 `disks.ini`、`var.ini` 和 `/host/proc/diskstats`，不扫描 `/mnt` 或运行 SMART。Array 容量只汇总完整且已挂载的 Data 磁盘，排除 Parity、Flash、Pool；Pool 容量只计一次，Btrfs 按 used + free。阵列停止或容量不完整时返回 `null`。
 - `spundown=0/1/其他` 对应 `active/standby/unknown`，UI 显示 `Active/Standby/Unknown`。休眠盘温度为 `null`，显示 `Temp —`，不得为取温度唤醒磁盘。
@@ -38,7 +39,8 @@
 - Query Cache 管理快照，React 本地 state 管理连接与趋势。先验证 capabilities，再挂载业务请求；token 只保存在 `sessionStorage` 的 `unraid-mobile.app-token`，REST 和 fetch SSE 共用认证 Header。任意当前会话 401 或退出均中止请求、关闭 SSE、清空受保护缓存；不可重试的 `ApiError` 不自动重试。
 - System 复用 `lib/stream.ts`，首次、重试和后台恢复均先取快照再开单一 fetch SSE；后台中止连接，卸载释放 reader 和 AbortController，避免旧结果回写。Storage / Docker 每两秒、VM 每三秒轮询，仅使用数据的当前路由挂载查询，后台暂停，前台恢复先刷新。
 - 首次无数据显示加载占位；刷新/断线保留已有样本并注明旧数据和采样时间。区分连接失败、采集不可用和空配置，保留不可用模块及原因，不伪造健康分、进度或成功结果。
-- 格式化复用 `lib/system.ts`，统一 1024 进制单位和 `/s`；未知值显示 `—` 或 unavailable。CPU 趋势仅在浏览器内存保留最多 60 个去重样本，用 SVG 绘制，不作为历史监控。
+- 格式化复用 `lib/system.ts`，统一 1024 进制单位和 `/s`；未知值显示 `—` 或 unavailable。CPU／网络趋势仅保存在浏览器内存，用 SVG 绘制，不作为历史监控。网络当前接口最多保留 60 个去重样本及最近 60 秒窗口，使用服务端时间戳定位，拒绝重复和乱序；null 和超过 3 秒的采样间隔断线，不补点或补零。RX／TX 采用同一窗口共同上限、零起点，不用 CPU 百分比截断；有效点不足两个显示 `Collecting trend…`。
+- 网络接口选择为 Auto 或实际采样名称，只影响展示且一次只显示一个接口，不汇总桥、bond 和成员，不标为互联网下载／上传。选择由 Shell 内存保存，切页保留、重载或会话退出恢复 Auto；接口消失保留手动选择并提示不可用。切换选择或 Auto 实际接口变化重置网络曲线；后台和断线保留旧曲线及时间。旧响应缺少数组时通过旧字段展示 Auto。原生 Dashboard 对照必须先选同一接口，再按 `B/s × 8 / 1000` 换算 Kbps，连续观察同一窗口，不能凭单截图判断精度。
 - UI 遵循下文“UI 视觉与交互规范”，具体色值和交互参数以列出的源码为准。保持移动单列、`max-w-md`、320px 最小视口和上下安全区；复用系统字体、等宽数字，避免数值更新造成布局跳动。
 - 外观默认 Dark，`localStorage` 的 `unraid-mobile.theme` 仅保存 `dark|light|system`；System 跟随设备，异常存储回退 Dark，跨标签页同步。head 脚本尽早应用外观，运行时由根元素属性和 CSS 变量更新，包括认证页、Portal 和 PWA 提示；不重建 Router、QueryClient、SessionGate、AppShell 或 SSE。实际颜色变化前取消 Tab 视觉转场，已提交导航继续。外观 AppSheet 选择后保持打开和焦点。
 - System 指标集中在一个面板，Storage 按 Array/Parity/Pools/Disks 分组，Disks 与诊断用 `details/summary` 折叠；磁盘行显示摘要，点击后用 AppSheet 展示详情。Button 保留至少 44px 高度、焦点和禁用反馈；图标按钮有可读标签，状态含义不能只靠颜色。
@@ -70,13 +72,14 @@
 | 控件边框 `control-border` | `#555554` | `#7B7B7B` |
 | 品牌文字 `brand-text` | `#FF8C2F` | `#F15A2C` |
 | 焦点 `focus-ring` | `#FF8C2F` | `#FF8C2F` |
-| 图表线 `chart-line` | `#D3D3D3` | `#404040` |
+| CPU／网络图表线 `chart-line`（映射 `brand-text`） | `#FF8C2F` | `#F15A2C` |
 | 容量填充 / 轨道 `progress-fill/track` | `#B8B8B8 / #404040` | `#595959 / #D3D3D3` |
 
 - 品牌渐变共用 `brand-gradient`：90°、`#E22828 → #FF8C2F`。页头品牌文字使用 `.brand-title` 渐变文字；底部 Tab 选中态使用 `surface` 背景、加粗 `brand-text`、2px 渐变顶线和 `aria-current="page"`，保留图标及文字标签。
 - 按钮复用 `web/src/components/ui/button.tsx`。主按钮为 4px 圆角、渐变填充、默认白字、大写及加宽字距，hover / focus-visible 变 `#171717` 黑字。次按钮为胶囊、2px 渐变描边、透明底和主题主文字，hover / focus-visible 填满渐变并变黑字；填充淡入 300ms。页头图标按钮为 44px 方形尺寸及胶囊外形；Sheet 关闭按钮沿用中性底和边框。
 - 连续渐变仅在 `(hover: hover) and (pointer: fine)` 的 hover 下启用：红 / 橙 / 红 / 橙四段，`background-size: 300% 100%`，`brand-flow 4s linear infinite`，位置由 `100% 100%` 移到 `0% 100%`。键盘焦点显示静态渐变与焦点环，触屏不启用连续流动；reduced-motion 关闭流动和填充过渡。禁用按钮使用中性底、边框和次文字，移除次按钮渐变装饰。
 - `success/warning/danger/info` 独立表达状态，品牌选中态不代表警告，图表和容量颜色不代表健康状态。旧样本通过局部 `stale-foreground/stale-text-muted` 降低文字强调，保留提示和采样时间；不将整个业务面板透明化，不淡化 SVG、状态或容量指标。
+- CPU、Receive、Transmit 趋势统一使用 `chart-line` 品牌色，以标题、箭头及独立区域区分方向；切主题立即变色，不清空样本或重订阅。折线不加循环渐变、闪动或平滑峰值，reduced-motion 保留数据更新。容量条仍使用独立 token。
 - 外观选择复用 `AppearanceSheet` 的原生 radio group 和 `AppSheet`：选中项使用品牌文字、品牌边框及内层背景。选择后保持打开和焦点；主题更新覆盖认证页、Portal 和 PWA 提示，不重建会话、路由或数据订阅。默认值、存储和同步规则见上文。
 
 ### 导航与面板
@@ -101,7 +104,7 @@
 
 | 范围 | 检查 |
 |---|---|
-| Go（仓库根目录） | `gofmt -w <修改文件>`；`go test -race ./...`；`go build ./cmd/server`；`go build ./cmd/host-spike` |
+| Go（仓库根目录） | `gofmt -w <修改文件>`；`go test -race ./...`；`go build ./cmd/server` |
 | 前端（`web` 目录） | `npm ci`；`npm test`；`npm run build`；同步更新 API/UI 行为的 Vitest 测试 |
 | 镜像/部署 | `docker build -t unraid-mobile:local .`；`sh scripts/verify-image.sh unraid-mobile:local`；`docker compose config`；下述 XML 校验 |
 

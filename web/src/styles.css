@@ -47,7 +47,7 @@
   --brand-gradient: linear-gradient(90deg, var(--brand-red), var(--brand));
   --brand-gradient-flow: linear-gradient(90deg, var(--brand-red), var(--brand), var(--brand-red), var(--brand));
 
-  /* Mobile inner surface and independent metric/status roles. */
+  /* Mobile inner surface and status/capacity roles remain independent of brand charts. */
   --surface-muted: #333231;
   --brand-foreground: #FFFFFF;
   --brand-interactive-foreground: #171717;
@@ -62,7 +62,7 @@
   --danger: #FF9E9E;
   --info: #93C5FD;
   --status-tint: var(--warning);
-  --chart-line: #D3D3D3;
+  --chart-line: var(--brand-text);
   --progress-fill: #B8B8B8;
   --progress-track: #404040;
   --overlay: #000000;
@@ -92,7 +92,7 @@
   --warning: #805000;
   --danger: #B42318;
   --info: #275DA8;
-  --chart-line: #404040;
+  --chart-line: var(--brand-text);
   --progress-fill: #595959;
   --progress-track: #D3D3D3;
   --stale-foreground: #4D4D4D;

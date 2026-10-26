@@ -37,7 +37,7 @@ PNG data URI 经格式、大小与尺寸验证后进入已有受认证内存图�
 | 前端全量测试 | 30 个文件、418 项通过 |
 | Go race 全量测试 | 通过，包括文件夹源、标签提取、PNG 和快照生命周期测试 |
 | 前端生产构建 | 通过，包含 PWA 网络与缓存边界校验 |
-| Go server 与 host-spike 构建 | 通过，输出到临时目录，未在主机执行 Spike |
+| Go server 构建 | 通过，输出到临时目录，未在主机执行 |
 | Linux server 交叉编译 | 通过，使用 `CGO_ENABLED=0 GOOS=linux` |
 | XML 解析与 `git diff --check` | 通过 |
 
@@ -45,7 +45,7 @@ PNG data URI 经格式、大小与尺寸验证后进入已有受认证内存图�
 
 浏览器检查使用本地生产构建和合成容器数据，但使用主机中已确认的同一 Immich Logo URL。实际 CSS 视口为 320px，页面无横向溢出，4 个成员显示为一个 Immich 项，Logo 经 CORS fetch 和对象 URL 成功加载。12 个运行容器合并成 9 项，默认显示 8 项，展开后显示 9 项。截图见 [Home 分组预览](home-folder-320.png)。这验证了浏览器链路，不能代替新后端在真实容器中的部署验收。
 
-测试日志：[前端](frontend-tests.log)、[Go race](go-race.log)、[生产构建](production-build.log)；浏览器断言见 [JSON 结果](browser-results.json)。
+测试日志：[前端](frontend-tests.log)、[生产构建](production-build.log)；浏览器断言见 [JSON 结果](browser-results.json)。历史 Go race 混合日志已移除，上表保留当日生产测试总结，未生成替代日志或作为当前测试结果。
 
 本机没有 Docker 命令，未运行镜像构建、镜像烟雾检查或 Compose 校验。Go 检查使用本机 Go 1.26.2；Dockerfile 的 Go 1.24 容器构建未运行。真实 Android／iOS、其他插件版本、插件自定义排序下的重复归属，以及新只读挂载的完整生产链路仍未验证。
 

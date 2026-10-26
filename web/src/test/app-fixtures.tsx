@@ -11,6 +11,10 @@ export const systemSample: SystemSnapshot = {
   uptimeSeconds: 120, cpuUsage: 25, cpuTemperature: 42,
   memoryUsedBytes: 1073741824, memoryTotalBytes: 2147483648,
   networkInterface: "br0", networkRXRate: 1048576, networkTXRate: null, diagnostics: {},
+  networkInterfaces: [
+    { name: "br0", available: true, rxBytesPerSecond: 1048576, txBytesPerSecond: null },
+    { name: "eth0", available: true, rxBytesPerSecond: 2097152, txBytesPerSecond: 524288 },
+  ],
 };
 export const dockerSample: DockerSnapshot = {
   timestamp: systemSample.timestamp, available: true,

@@ -129,13 +129,18 @@ describe("official Unraid semantic palette", () => {
     }
   });
 
-  it.each(["dark", "light"] as const)("keeps %s chart and progress independent and visible", (theme) => {
+  it.each(["dark", "light"] as const)("uses the %s brand text for CPU and network chart lines", (theme) => {
+    expect(value(palette(theme), "chart-line")).toBe(value(palette(theme), "brand-text"));
+  });
+
+  it.each(["dark", "light"] as const)("keeps %s status and capacity independent from brand charts", (theme) => {
     const tokens = palette(theme);
     for (const name of ["chart-line", "progress-fill"]) {
       const color = value(tokens, name);
-      expect(color).not.toBe(value(tokens, "brand"));
       for (const status of ["success", "warning", "danger", "info"]) expect(color).not.toBe(value(tokens, status));
     }
+    expect(value(tokens, "progress-fill")).not.toBe(value(tokens, "brand"));
+    expect(value(tokens, "progress-fill")).not.toBe(value(tokens, "chart-line"));
     expect(value(tokens, "progress-fill")).not.toBe(value(tokens, "progress-track"));
   });
 

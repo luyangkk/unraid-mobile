@@ -38,7 +38,7 @@
 - [x] Add failing table tests for valid deep links, HEAD, extensionless Not Found paths, existing assets, missing assets, methods, health, API errors and malformed paths with/without APP_TOKEN.
 - [x] Run `go test ./cmd/server`; confirm missing deep-link behavior fails.
 - [x] Implement validation before static serving and extensionless fallback, preserving `routeAPIRequests`.
-- [x] Run backend tests, race checks and both build commands.
+- [x] Run backend tests, race checks and `go build ./cmd/server`.
 
 ### Task 2: Feature overview and stale presentation
 

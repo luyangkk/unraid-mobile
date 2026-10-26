@@ -22,7 +22,6 @@
 | `gofmt` | 修改的 Go 文件已格式化 |
 | `go test -race ./...` | 通过 |
 | `go build ./cmd/server` | 通过 |
-| `go build ./cmd/host-spike` | 通过 |
 | Unraid 模板 XML 解析 | 通过 |
 | `git diff --check` | 通过 |
 | `docker build -t unraid-mobile:local .` | 未完成，命令退出 127：找不到 docker |

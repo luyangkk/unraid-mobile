@@ -1,7 +1,6 @@
 {
   "kind": "nativeWebGuiObservation",
   "target": "http://10.0.0.66",
-  "updatedSpikeExecuted": false,
   "system": {
     "observedAt": "2026-10-24T13:55:54.153Z",
     "cpuUsagePercent": 24,

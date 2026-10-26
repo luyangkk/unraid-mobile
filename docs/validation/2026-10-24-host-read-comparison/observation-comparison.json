@@ -1,6 +1,5 @@
 {
   "kind": "existingDeploymentObservationComparison",
-  "updatedSpikeExecuted": false,
   "beforeObservedAt": "2026-10-24T13:56:19.584978+00:00",
   "afterObservedAt": "2026-10-24T14:02:55.147420+00:00",
   "dockerCountAndSummaryUnchanged": true,
@@ -23,6 +22,6 @@
   ],
   "diskPowerStatesUnchanged": false,
   "standbyDataTemperaturesRemainNull": true,
-  "limitation": "One data disk changed power state during HTTP/WebGUI observation. Cause is not established. No updated Spike was executed; summary comparisons cannot exclude intermediate resource transitions.",
+  "limitation": "One data disk changed power state during HTTP/WebGUI observation. Cause is not established. Summary comparisons cannot exclude intermediate resource transitions.",
   "writeVerified": false
 }

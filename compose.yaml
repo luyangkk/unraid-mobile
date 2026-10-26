@@ -16,31 +16,3 @@ services:
       APP_TOKEN: "${APP_TOKEN:-}"
       TZ: Asia/Shanghai
     restart: unless-stopped
-
-  host-spike:
-    build: .
-    profiles: ["spike"]
-    privileged: false
-    entrypoint: ["/app/host-spike"]
-    volumes:
-      - type: bind
-        source: /proc
-        target: /host/proc
-        read_only: true
-        bind:
-          create_host_path: false
-      - type: bind
-        source: /sys
-        target: /host/sys
-        read_only: true
-        bind:
-          create_host_path: false
-      - type: bind
-        source: /var/local/emhttp
-        target: /host/var/local/emhttp
-        read_only: true
-        bind:
-          create_host_path: false
-    environment:
-      SPIKE_DOCKER_READ_ENABLED: "false"
-      SPIKE_VM_READ_ENABLED: "false"

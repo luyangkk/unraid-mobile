@@ -104,7 +104,7 @@ esac
 curl -fsS "$base_url$asset_path" -o /dev/null
 verify_public_frontend "$base_url" "$home_page"
 curl -fsS "$base_url/api/v1/capabilities" | grep -q '"docker":false'
-curl -fsS "$base_url/api/v1/system" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["available"] is False and d["reason"] and d["cpuUsage"] is None'
+curl -fsS "$base_url/api/v1/system" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["available"] is False and d["reason"] and d["cpuUsage"] is None and d["networkInterfaces"]==[], d'
 curl -fsS "$base_url/api/v1/storage" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["available"] is False and "/host/var/local/emhttp" in d["reason"]'
 curl -fsS "$base_url/api/v1/docker" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["available"] is False and d["reason"] and d["containers"]==[] and d["summary"]=={"running":0,"stopped":0,"other":0}, d'
 curl -fsS "$base_url/api/v1/capabilities" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["docker"] is False and all(d["dockerActions"][action] is False for action in ("start","stop","restart")), d'
@@ -123,10 +123,29 @@ until curl -fsS "$fixture_url/healthz" -o /dev/null; do
   if [ "$attempt" -ge 30 ]; then exit 1; fi
   sleep 1
 done
-curl -fsS "$fixture_url/api/v1/system" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["available"] and d["hostname"]=="Fixture-Tower" and d["memoryUsedBytes"]==6291456 and d["cpuTemperature"]==42 and d["networkInterface"]=="br0", d'
+curl -fsS "$fixture_url/api/v1/system" | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+assert d["available"] and d["hostname"]=="Fixture-Tower" and d["memoryUsedBytes"]==6291456 and d["cpuTemperature"]==42 and d["networkInterface"]=="br0", d
+items=d["networkInterfaces"]
+assert [i["name"] for i in items]==["br0","eth0","lo","veth1"] and all(i["available"] for i in items), d
+assert all(set(i)=={"name","available","rxBytesPerSecond","txBytesPerSecond"} for i in items), d
+auto=items[0]
+assert d["networkRXRate"]==auto["rxBytesPerSecond"] and d["networkTXRate"]==auto["txBytesPerSecond"], d
+'
 # curl 28 is expected: this is an intentionally bounded read of a live stream.
 stream="$(curl -fsSN --max-time 3 "$fixture_url/api/v1/events" || test "$?" = 28)"
-printf '%s' "$stream" | python3 -c 'import json,sys; text=sys.stdin.read(); samples=[json.loads(line[6:]) for line in text.splitlines() if line.startswith("data: ")]; assert "event: system.metrics" in text and len(samples)>=2 and all(d["available"] for d in samples) and samples[-1]["networkRXRate"]==0, text'
+printf '%s' "$stream" | python3 -c '
+import json,sys
+text=sys.stdin.read()
+samples=[json.loads(line[6:]) for line in text.splitlines() if line.startswith("data: ")]
+assert "event: system.metrics" in text and len(samples)>=2 and all(d["available"] for d in samples), text
+for d in samples:
+    items=d["networkInterfaces"]
+    assert [i["name"] for i in items]==["br0","eth0","lo","veth1"] and all(i["available"] for i in items), d
+    assert d["networkRXRate"]==items[0]["rxBytesPerSecond"] and d["networkTXRate"]==items[0]["txBytesPerSecond"], d
+assert all(i["rxBytesPerSecond"]==0 and i["txBytesPerSecond"]==0 for i in samples[-1]["networkInterfaces"]), text
+'
 curl -fsS "$fixture_url/api/v1/storage" | python3 -c 'import json,sys; text=sys.stdin.read(); d=json.loads(text); assert d["available"] and d["array"]["capacity"]["totalBytes"]==10240000 and d["array"]["diskCount"]==1 and d["pools"][0]["capacity"]["totalBytes"]==2048000 and d["pools"][0]["diskCount"]==2 and d["parity"]["state"]=="idle" and d["disks"][0]["powerState"]=="active" and "csrf_token" not in text and "fixture-must-never-be-exported" not in text, text'
 curl -fsS "$fixture_url/api/v1/capabilities" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["array"]["read"] and not d["array"]["start"] and not d["array"]["stop"] and d["storage"]["read"]'
 

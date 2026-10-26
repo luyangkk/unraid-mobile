@@ -5,6 +5,7 @@ import {
   getDocker, getVMs,
 } from "./api";
 import { setAppToken, subscribeUnauthorized } from "./auth";
+import { systemSample } from "../test/app-fixtures";
 
 afterEach(() => setAppToken(null));
 
@@ -59,6 +60,18 @@ describe("getCapabilities", () => {
 });
 
 describe("getSystem", () => {
+  it.each([true, false])("preserves complete network fields and old-server compatibility: array=%s", async (withInterfaces) => {
+    const payload = { ...systemSample, networkInterfaces: withInterfaces ? systemSample.networkInterfaces : undefined };
+    const result = await getSystem(undefined, async () => new Response(JSON.stringify(payload)));
+    expect(result.networkInterface).toBe("br0");
+    expect(result.networkRXRate).toBe(1048576);
+    expect(result.networkTXRate).toBeNull();
+    expect(result.networkInterfaces).toEqual(withInterfaces ? [
+      { name: "br0", available: true, rxBytesPerSecond: 1048576, txBytesPerSecond: null },
+      { name: "eth0", available: true, rxBytesPerSecond: 2097152, txBytesPerSecond: 524288 },
+    ] : undefined);
+  });
+
   it("loads a fresh system snapshot and passes cancellation", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(

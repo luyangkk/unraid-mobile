@@ -3,9 +3,9 @@
 Mobile-first console for a single Unraid server, built with Go and React.
 
 **Current status: read-only system, storage, Docker and VM preview.** The image shows host CPU,
-memory, default-route network rates, uptime and recognized CPU sensors. Metrics
+memory, selectable host-interface network rates, uptime and recognized CPU sensors. Metrics
 are sampled every second and delivered through REST snapshots and SSE. The CPU
-trend keeps at most 60 points in browser memory. Initial/invalid rate samples
+and network trends keep at most 60 points in browser memory. Initial/invalid rate samples
 are unknown, not zero. Storage shows Array/Parity state, per-filesystem capacity,
 pools, disk temperature and physical-device I/O from Unraid metadata and procfs.
 Docker shows all containers, their actual states, CPU, working-set memory,
@@ -16,7 +16,7 @@ implemented; write capabilities remain disabled.
 
 The mobile shell has four browser History routes: **Home** (`/`), **Docker**
 (`/docker`), **VM** (`/vm`) and **Storage** (`/storage`). Home keeps the complete
-System panel and CPU trend, running Docker/VM overviews and Storage capacity
+System panel and CPU/network trends, running Docker/VM overviews and Storage capacity
 summaries. The other pages show the full resource lists and diagnostics. Fixed
 bottom navigation includes safe-area spacing, keyboard focus and current-page
 labels. Unknown client routes offer a return to Home.
@@ -65,7 +65,7 @@ the shell and all route chunks can open without the server. This is not offline
 monitoring: API responses, metrics, resource snapshots, Operation results,
 health checks and SSE are never cached by the worker. Credentials are never
 stored in Cache Storage; the existing per-tab `sessionStorage` token behavior
-is unchanged. Business samples and the CPU trend remain in memory only.
+is unchanged. Business samples, interface selection and trends remain in memory only.
 
 An offline cold start shows the shell and a connection error, not restored
 business data or a token prompt caused solely by a network failure. An existing
@@ -315,9 +315,9 @@ read-only; this application sends only fixed Engine read requests. Existing
 Unraid installations must add the optional socket mount manually after updating
 the image. On the authorized Unraid 7.1.0 host, the deployed API and WebGUI
 agree on 25 containers (13 running, 12 stopped). One container has unavailable
-network counters. This observation does not verify the updated standalone
-Spike or actual container mount permissions; see the
-[host validation record](docs/validation/2026-10-24-host-spike/report.md).
+network counters. This observation does not verify actual container mount or
+socket permissions; see the
+[host read comparison](docs/validation/2026-10-24-host-read-comparison/report.md).
 
 VM preview remains disabled by default pending complete host compatibility validation.
 For an authorized validation host, set `VM_READ_ENABLED=true` explicitly and add
@@ -351,17 +351,49 @@ uptime. `capabilities.vm` expresses successful reads only;
 implemented. On the authorized Unraid 7.1.0 host, one running VM's list entry,
 state, 4 assigned vCPUs and 1 GiB assigned RAM agree with the WebGUI.
 Stopped/paused/crashed domains, socket permissions and daemon recovery remain
-experimental; the updated standalone Spike still requires execution on that
-host. See the [Spike validation record](docs/validation/2026-10-24-host-spike/report.md).
+experimental and require manual validation on an authorized host. See the
+[host read comparison](docs/validation/2026-10-24-host-read-comparison/report.md).
 Existing installations must add the optional
 libvirt directory mount manually.
 
 Missing mounts, missing sensors or host-network permission errors are shown as
-unavailable data with diagnostics. Network rates use the lowest-metric active
-default IPv4 route from `/host/proc/1/net/route` and that interface's counters in
-`/host/proc/1/net/dev`, avoiding container namespaces and double counting of
-bridges, bonds and their member interfaces. No IPv4 default route means no
-network rate. CPU temperature requires a labelled CPU hwmon sensor or a known
+unavailable data with diagnostics. Each System sample reads all host interface
+counters once from `/host/proc/1/net/dev`. **Auto** selects the lowest-metric active
+default IPv4 route from `/host/proc/1/net/route` and shows its resolved name.
+Choose a sampled interface to view its own Receive (RX) and Transmit (TX);
+these are interface rates, not Internet download/upload speed. Only one interface
+is displayed, without adding bridges, bonds and their members together.
+Selection changes only browser display, persists across Tabs, and resets to Auto
+on reload or logout. A removed manual interface stays selected and unavailable.
+Without a default route Auto is unavailable, but readable manual interfaces work.
+
+Each interface has its own adjacent-sample baseline and actual elapsed time.
+First/new, rollback and recovery samples have null rates; unchanged valid
+counters have real zero rates. Local interface errors do not reset other
+interfaces or make CPU/memory unavailable. Mounted sysfs ifindex changes are
+detected when readable; ifindex reuse and namespace differences mean same-name
+replacement detection remains best effort. No additional mounts or host settings
+are required.
+
+Receive and Transmit have separate compact SVG trends with a shared zero-based
+scale. Network history uses server timestamps, at most 60 samples in the latest
+60-second window. Duplicate and older timestamps are ignored; missing values and
+gaps over 3 seconds break lines. Interface changes reset network history.
+Background/disconnect gaps are not filled, and stale curves keep their sample
+time. Each direction needs two valid values to replace “Collecting trend…”.
+CPU and network strokes use `chart-line`, mapped to the theme's brand text
+(Dark `#FF8C2F`, Light `#F15A2C`); changing theme keeps samples and the stream.
+Graph emphasis does not indicate health, and capacity colors remain independent.
+
+The API sends B/s and the UI uses B/s, KiB/s and MiB/s. When comparing with the
+native Dashboard, first choose the same interface and observe the same continuous
+time window. Convert B/s to decimal Kbps with `rate × 8 / 1000` (or Mbps with
+`rate × 8 / 1000000`); for example, 1 MiB/s is 8388.608 Kbps.
+Different sampling windows can produce different instantaneous values.
+See the [System API contract](docs/http-api.md) and
+[network validation record](docs/validation/2026-10-26-network-trends.md).
+
+CPU temperature requires a labelled CPU hwmon sensor or a known
 CPU thermal-zone type. Target-host verification remains necessary.
 
 Storage uses only `disks.ini` and `var.ini` in the mounted Unraid state directory;
@@ -409,11 +441,7 @@ preview, add `--mount type=bind,src=/var/run/libvirt,dst=/var/run/libvirt,readon
 only when the host exposes `libvirt-sock-ro`, together with `-e VM_READ_ENABLED=true`
 for target-host validation.
 
-Validate with `curl -i http://10.0.0.66:18080/healthz` (expected 204),
-`curl http://10.0.0.66:18080/api/v1/docker` in LAN mode (check `available` and diagnostics), and
-`docker logs --tail 50 unraid-mobile`.
-When `APP_TOKEN` is enabled, API checks require the Bearer header; `/healthz`
-still returns 204 without it. Avoid verbose HTTP traces that disclose the header.
+After deployment, follow the [manual host acceptance checklist](#manual-host-acceptance).
 
 ## Operation infrastructure
 
@@ -464,49 +492,63 @@ After a successful publish, check for updates on Unraid's Docker page and update
 the container. To roll back, edit Repository to an earlier published
 `ghcr.io/luyangkk/unraid-mobile:sha-<full-commit-sha>` tag and apply.
 
-## Host capability spike
+## Manual host acceptance
 
-The separate `host-spike` binary reuses the production adapters and services to
-sample System and Storage, including Array/Parity metadata, twice. Docker and
-VM protocol probes run only when `SPIKE_DOCKER_READ_ENABLED=true` and
-`SPIKE_VM_READ_ENABLED=true` respectively. Other values report `skipped` and
-do not access optional sockets. VM always uses `libvirt-sock-ro`; Docker uses
-only the existing version, list, inspect and non-streaming stats GET requests.
+Use the main application's read-only pages and existing API on an authorized
+Unraid host. Deploy with the [Unraid template](deploy/unraid/unraid-mobile.xml)
+or the documented unprivileged `docker run` command. The higher-privilege
+development Compose configuration is not a production permissions template.
 
-Each module has its own result, status and sanitized diagnostics. The versioned
-JSON includes UTC time, surface checks, intended mounts, observed mount modes
-when `/proc/self/mountinfo` provides evidence, permissions and unverified
-capabilities. A successful path check alone does not establish read-only mount
-mode or container privilege settings. Docker output contains counts and status
-summaries; VM adds counts of available assigned CPU/RAM fields. No names,
-identifiers, serials, XML, full inspect, labels or environment are exported.
-`writeVerified` is always false. Read compatibility does not validate Array or
-Parity control entry points or authorize production executors.
+1. Record the image revision, Unraid version, enabled read modules and observation
+   time. Check the configured mounts and `Privileged=false` in the Unraid Docker
+   settings. Seeing data in the application does not prove read-only mount mode
+   or socket permissions.
+2. Open Home and Storage and wait for fresh samples. Compare CPU, memory, uptime,
+   recognized CPU temperature, Array/Parity state, Pool capacity and disk state
+   with the Unraid WebGUI. Compare CPU over matching sampling windows; for network
+   rates select the same interface and convert `B/s × 8 / 1000` to Kbps. Rates from
+   first or invalid samples are unknown. Missing optional metrics and unconfigured
+   resources are recorded separately from collection failures.
+3. Open Docker if its optional socket is mounted. Compare the full Running,
+   Stopped and Other lists and counts, not only Home's running overview. Record
+   partial statistics and diagnostics without discarding otherwise readable rows.
+   Leave VM reads disabled unless explicitly validating that module on an
+   authorized host. With `VM_READ_ENABLED=true` and the read-only libvirt directory
+   mount, compare VM states and assigned CPU/RAM with WebGUI; unknown uptime,
+   unobserved states and daemon recovery remain unverified.
+4. Watch sample times advance. A stale or retained snapshot does not establish
+   current read availability. Expand diagnostics and record `unavailable`, unknown
+   fields, request failures and their reasons. Sleeping disks must show `Temp —`;
+   do not run SMART or disk activity to obtain a temperature. Record disk states
+   before and after observation; an unexplained power-state change prevents a
+   claim that observation did not wake disks.
+5. If needed, inspect existing REST snapshots and container logs. In LAN mode,
+   use the requests below, substituting the deployed address. `/healthz` returning
+   `204` proves only process liveness. A module can return HTTP `200` with
+   `available=false`; check its reason, diagnostics and sampling time.
 
-Exit codes: `0` means required checks and enabled optional protocols passed;
-`1` means an internal/report encoding error; `2` means a required or enabled
-probe failed or was incomplete. Optional metrics may remain unknown with
-diagnostics. Whole-run and module deadlines prevent sockets from waiting
-indefinitely. No probe runs host commands, scans `/mnt`, performs SMART or
-mutates a host resource.
+   ```sh
+   curl -i http://10.0.0.66:18080/healthz
+   curl http://10.0.0.66:18080/api/v1/capabilities
+   curl http://10.0.0.66:18080/api/v1/system
+   curl http://10.0.0.66:18080/api/v1/storage
+   curl http://10.0.0.66:18080/api/v1/docker
+   curl http://10.0.0.66:18080/api/v1/vms
+   docker logs --tail 50 unraid-mobile
+   ```
 
-Run only on the explicitly authorized Unraid test host. The launcher builds
-locally unless `SPIKE_IMAGE` names a prebuilt image containing the updated
-binary. Builds go to stderr, leaving stdout for JSON. It uses no privileged
-mode or `/boot` mount. Missing optional sockets are left unmounted so the
-binary can report their failure while retaining other module results:
+   Token-enabled API requests require `Authorization: Bearer <APP_TOKEN>`;
+   `/healthz` remains public. Use a trusted HTTPS connection when sending the
+   token. Keep credentials out of URLs, verbose HTTP traces, saved snapshots and
+   shared logs.
 
-```sh
-SPIKE_DOCKER_READ_ENABLED=true SPIKE_VM_READ_ENABLED=true \
-  sh scripts/run-host-spike.sh
-```
-
-To retain raw JSON without writing host files, redirect the authorized remote
-execution's stdout to a local validation directory. Retain its exit code
-separately. Do not assume an already deployed image includes an unshipped Spike
-change. `docker compose --profile spike run --rm host-spike` performs only the
-default System/Storage probes; use the launcher for conditional socket mounts.
-A read-only socket mount alone does not restrict socket API methods.
+Record each module's observed result, unknown fields and remaining scenarios.
+Host compatibility is limited to the scenarios actually observed and recorded;
+local synthetic tests, process health and readable paths alone do not establish
+it. Read acceptance does not
+authorize or validate write operations. The
+[historical host read comparison](docs/validation/2026-10-24-host-read-comparison/report.md)
+contains earlier API/WebGUI observations and their limitations.
 
 ## Local development
 

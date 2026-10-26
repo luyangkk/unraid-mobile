@@ -26,7 +26,7 @@
 - Unknown IDs return 404 `OPERATION_NOT_FOUND`; a valid query without a Store returns 503 `OPERATIONS_UNAVAILABLE`.
 - Preserve System snapshots, 15-second comment heartbeat, 5-second write deadlines and SSE headers. Subscribe to both sources before writing the initial System event.
 - No executor, client mutation/cancellation endpoint, list, persistence, frontend changes, host writes, or new capabilities.
-- Work on `feat/operation-infrastructure`, preserving pre-existing Spike and frontend changes. Do not merge, push or deploy as part of this task.
+- Work on `feat/operation-infrastructure`, preserving pre-existing unrelated and frontend changes. Do not merge, push or deploy as part of this task.
 
 ## Review focus
 
@@ -75,7 +75,7 @@
 
 - [x] Update current capability descriptions without changing historical host-validation records.
 - [x] Request independent review of only this task's changes and resolve material findings with regression tests.
-- [x] Run `gofmt -w` on changed Go files, `go test -race ./...`, `go build ./cmd/server`, and `go build ./cmd/host-spike`.
+- [x] Run `gofmt -w` on changed Go files, `go test -race ./...`, and `go build ./cmd/server`.
 - [x] Since frontend source/types are untouched, frontend checks are outside this change's required scope.
 - [x] Report actual checks and deployment status; the user will update the image on 10.0.0.66.
 
@@ -86,6 +86,6 @@
 - Regression RED: encoded namespace separators returned 200 and repeated namespace separators returned redirects. GREEN: canonical and encoded path checks now return the shared route error in both API and production routing tests.
 - Timer expiry, terminal-update wake rescheduling, replacement timer shutdown and active-record preservation use fake clocks and timer channels.
 - A test-side subscriber-count race in the TCP disconnect test was corrected by checking live delivery, then inspecting subscriber state only after handler exit. Its race test passed ten consecutive runs.
-- Final checks: `go test -race ./...`, both requested Go builds and `git diff --check` passed.
+- Final checks: `go test -race ./...`, `go build ./cmd/server` and `git diff --check` passed.
 - No frontend source/types changed in this task. Frontend checks, image build/publish, host deployment and real-host validation were not run. Existing frontend changes and historical validation records remain outside this task.
 - All production write capabilities remain disabled. Fake-capability acceptance creates pending records without execution. No host write requests were added.

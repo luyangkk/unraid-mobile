@@ -5,7 +5,7 @@ Mobile-first console for a single Unraid server, built with Go and React.
 **Current status: read-only system, storage, Docker and VM preview.** The image shows host CPU,
 memory, selectable host-interface network rates, uptime and recognized CPU sensors. Metrics
 are sampled every second and delivered through REST snapshots and SSE. The CPU
-and network trends keep at most 60 points in browser memory. Initial/invalid rate samples
+and network trends keep at most 60 points within 60 seconds in browser memory. Initial/invalid rate samples
 are unknown, not zero. Storage shows Array/Parity state, per-filesystem capacity,
 pools, disk temperature and physical-device I/O from Unraid metadata and procfs.
 Docker shows all containers, their actual states, CPU, working-set memory,
@@ -20,6 +20,28 @@ System panel and CPU/network trends, running Docker/VM overviews and Storage cap
 summaries. The other pages show the full resource lists and diagnostics. Fixed
 bottom navigation includes safe-area spacing, keyboard focus and current-page
 labels. Unknown client routes offer a return to Home.
+
+CPU details expand inline below CPU/Memory and above Network. The summary keeps
+the logical processor count visible; expanded content shows the reported model,
+frequency and current per-processor usage on fixed 0–100 measurement bars.
+The 10s/30s/60s radio options filter the existing aggregate CPU trend only.
+Disclosure/window preferences and samples survive Tab changes in Shell memory;
+reload or logout restores closed details and a 60s window. Missing values stay
+unknown, retained samples remain marked stale, and incomplete history is labelled
+collecting. Opening details or changing the window does not add a request or SSE.
+
+`cpuUsage` and `cpuTemperature` remain compatible. New System REST/SSE fields are
+`cpuInfo` (`model`, `reportedFrequencyHz`, `logicalCPUCount`) and
+`cpuLogicalProcessors` (`id`, nullable `usage`, optional `reason`).
+The logical IDs/count come from the same mounted `/proc/stat` read as aggregate
+CPU. Usage excludes guest double-counting and includes iowait in idle; each
+logical processor maintains its own adjacent-sample baseline.
+Model and frequency use only `model name` and `cpu MHz` from mounted
+`/proc/cpuinfo`. Reported frequency is the average of finite positive reports,
+converted to Hz; it is neither a fixed clock nor a physical core count.
+Optional missing cpuinfo does not invalidate other System telemetry.
+CPU automation, browser captures and remaining image/live-host/device acceptance
+gaps are recorded in the [CPU validation report](docs/validation/2026-10-26-cpu-details.md).
 
 Swipe left in the page body or bottom navigation to move one Tab forward
 (Home → Docker → VM → Storage), or right to move back. The ends do not wrap.
@@ -509,6 +531,14 @@ development Compose configuration is not a production permissions template.
    rates select the same interface and convert `B/s × 8 / 1000` to Kbps. Rates from
    first or invalid samples are unknown. Missing optional metrics and unconfigured
    resources are recorded separately from collection failures.
+   Expand CPU details and compare the processor model and complete numeric logical
+   ID set. Observe aggregate and individual usage continuously over matching
+   intervals; a single screenshot does not establish rate accuracy.
+   Record the mounted cpuinfo frequency reports and their averaging semantics
+   separately from WebGUI's displayed MHz, and verify the labelled sysfs CPU
+   temperature source rather than substituting the motherboard sensor.
+   New CPU fields require a deployed image containing this extension; an older
+   response exercises backward compatibility only.
 3. Open Docker if its optional socket is mounted. Compare the full Running,
    Stopped and Other lists and counts, not only Home's running overview. Record
    partial statistics and diagnostics without discarding otherwise readable rows.

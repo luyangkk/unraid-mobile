@@ -1,0 +1,50 @@
+{
+  "target": "http://10.0.0.66",
+  "application": "http://10.0.0.66:18080",
+  "date": "2026-10-26",
+  "readOnly": true,
+  "newCodeDeployed": false,
+  "native": [
+    {
+      "observedAt": "2026-10-26T14:55:19.139Z",
+      "processorText": "Intel® N100 @ 2871 MHz",
+      "logicalIds": [0, 1, 2, 3],
+      "cpuTemperatureText": "Temperature: 52 °C",
+      "motherboardTemperatureText": "Temperature: 52 °C"
+    },
+    {
+      "observedAt": "2026-10-26T14:55:24.709Z",
+      "overallBarPercent": 8.00186,
+      "logicalBarPercent": [6.00025, 6.00025, 12.0005, 7.00123]
+    },
+    {
+      "observedAt": "2026-10-26T14:55:53.016Z",
+      "overallText": "Overall Load:14%",
+      "logicalText": ["CPU 016%", "CPU 114%", "CPU 214%", "CPU 312%"],
+      "cpuTemperatureText": "Temperature: 49 °C"
+    }
+  ],
+  "applicationSamples": [
+    {"timestamp":"2026-10-26T14:55:14.48782783Z","available":true,"cpuUsage":3.8071065989847717,"cpuTemperature":55},
+    {"timestamp":"2026-10-26T14:55:15.487699594Z","available":true,"cpuUsage":12.468193384223918,"cpuTemperature":52},
+    {"timestamp":"2026-10-26T14:55:16.486914055Z","available":true,"cpuUsage":3.3078880407124682,"cpuTemperature":49},
+    {"timestamp":"2026-10-26T14:55:17.486746938Z","available":true,"cpuUsage":6.887755102040816,"cpuTemperature":49},
+    {"timestamp":"2026-10-26T14:55:18.486890136Z","available":true,"cpuUsage":3.061224489795918,"cpuTemperature":49},
+    {"timestamp":"2026-10-26T14:55:19.486841271Z","available":true,"cpuUsage":6.075949367088608,"cpuTemperature":49},
+    {"timestamp":"2026-10-26T14:55:20.487785539Z","available":true,"cpuUsage":29.66751918158568,"cpuTemperature":50},
+    {"timestamp":"2026-10-26T14:55:21.487605601Z","available":true,"cpuUsage":18.829516539440203,"cpuTemperature":63},
+    {"timestamp":"2026-10-26T14:55:22.487155899Z","available":true,"cpuUsage":17.091836734693878,"cpuTemperature":63},
+    {"timestamp":"2026-10-26T14:55:23.487541493Z","available":true,"cpuUsage":4.071246819338422,"cpuTemperature":47},
+    {"timestamp":"2026-10-26T14:55:24.487380108Z","available":true,"cpuUsage":4.060913705583756,"cpuTemperature":47},
+    {"timestamp":"2026-10-26T14:55:26.487297731Z","available":true,"cpuUsage":6.361323155216285,"cpuTemperature":49}
+  ],
+  "limitations": [
+    "The deployed application response omits cpuInfo and cpuLogicalProcessors.",
+    "Native bar widths animate; bar widths and text can differ during a transition.",
+    "Different polling windows prevent precision claims from these observations.",
+    "2871 MHz is observed native text, not a default or proven instantaneous frequency.",
+    "A labelled native temperature does not establish its live sysfs sensor source.",
+    "New CPU numbering, per-CPU baselines, frequency semantics and temperature provenance require live acceptance after an authorized deployment.",
+    "No Android or iOS device validation was performed."
+  ]
+}

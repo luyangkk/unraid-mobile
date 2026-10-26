@@ -1,0 +1,24 @@
+[
+  {
+    "command": "docker build -t unraid-mobile:local .",
+    "exitCode": 127,
+    "stderr": "[Errno 2] No such file or directory: 'docker'"
+  },
+  {
+    "command": "sh scripts/verify-image.sh unraid-mobile:local",
+    "exitCode": 127,
+    "stdout": "",
+    "stderr": "scripts/verify-image.sh: line 84: docker: command not found\nscripts/verify-image.sh: line 13: docker: command not found\nscripts/verify-image.sh: line 14: docker: command not found\n"
+  },
+  {
+    "command": "docker compose config",
+    "exitCode": 127,
+    "stderr": "[Errno 2] No such file or directory: 'docker'"
+  },
+  {
+    "command": "python3 -c import xml.etree.ElementTree as ET; ET.parse(\"deploy/unraid/unraid-mobile.xml\")",
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

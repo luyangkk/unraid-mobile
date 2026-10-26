@@ -1,0 +1,118 @@
+
+> unraid-mobile-web@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Users/bytedance/Work/feWorkspace/unraid-mobile/web
+
+ ✓ src/features/auth/SessionGate.test.tsx (11 tests) 359ms
+ ✓ src/App.auth.test.tsx (1 test) 187ms
+ ✓ src/features/system/CPUDetails.test.tsx (8 tests) 190ms
+ ✓ src/features/docker/DockerPanel.interaction.test.tsx (4 tests) 199ms
+ ✓ src/App.theme.test.tsx (10 tests) 1407ms
+   ✓ application appearance > defaults to Dark and updates the root and browser chrome immediately  336ms
+ ✓ src/features/storage/StoragePanel.interaction.test.tsx (10 tests) 1940ms
+   ✓ resolves focus after a poll removes the trigger during the close animation  1343ms
+ ✓ src/lib/theme-bootstrap.test.ts (8 tests) 79ms
+ ✓ src/components/app/PWAUpdateBanner.test.tsx (5 tests) 154ms
+ ✓ src/features/system/SystemPanel.test.tsx (10 tests) 163ms
+ ✓ src/app/cpu.test.tsx (7 tests) 3452ms
+   ✓ preserves disclosure/radio identity, focus and buffers across samples, repeated selection and themes  497ms
+   ✓ retains open state, selected window and complete aggregate history across tabs and reset on remount  638ms
+   ✓ keeps null/gap breaks, rejects duplicate/out-of-order samples and selects existing offline history  631ms
+   ✓ keeps preferences/focus through refresh failure and recovery while splitting the missing interval  516ms
+   ✓ hides unavailable System metrics and independently restarts CPU history on collection recovery  460ms
+   ✓ clears preferences and protected CPU history after logout before a new session  376ms
+   ✓ clears preferences and protected CPU history after 401 before a new session  330ms
+ ✓ src/lib/palette.test.ts (13 tests) 51ms
+ ✓ src/features/docker/DockerPanel.test.tsx (16 tests) 43ms
+ ✓ src/features/docker/ContainerIcon.test.tsx (10 tests) 68ms
+ ✓ src/lib/docker-api.test.ts (2 tests) 6ms
+ ✓ src/lib/vm-api.test.ts (4 tests) 8ms
+ ✓ src/features/storage/StoragePanel.test.tsx (16 tests) 27ms
+ ✓ src/lib/theme.test.tsx (4 tests) 26ms
+ ✓ src/features/vm/VMPanel.test.tsx (13 tests) 29ms
+ ✓ src/lib/stream.test.ts (36 tests) 47ms
+ ✓ src/lib/folder-icon.test.ts (2 tests) 7ms
+ ✓ src/lib/pwa.test.ts (10 tests) 6ms
+ ✓ src/components/ui/button.test.tsx (1 test) 31ms
+ ✓ src/lib/pwa-policy.test.ts (43 tests) 5ms
+ ✓ src/lib/query.test.ts (2 tests) 6ms
+ ✓ src/lib/auth.test.ts (9 tests) 6ms
+ ✓ src/app/network.test.tsx (15 tests) 5483ms
+   ✓ keeps a manual interface and its curves across tabs without a second SSE  603ms
+   ✓ retains a disappeared manual choice without substituting Auto rates  430ms
+   ✓ seeds only the newly selected interface and rejects duplicate instants  491ms
+   ✓ preserves manual curves through theme changes without reconnecting the stream  308ms
+   ✓ retains curves during background pause and splits a resumed real-time gap  435ms
+   ✓ keeps disconnected history through refresh failure and does not fill the recovery gap  452ms
+   ✓ clears protected history and selection after logout, including a new session  452ms
+   ✓ clears protected history and selection after 401, including a new session  375ms
+   ✓ supports an old server via Auto and clears memory-only selection on remount  540ms
+   ✓ keeps live sheet focus across theme changes and updates disappeared interface reasons  320ms
+stdout | src/app/useTabTransition.test.tsx > Tab transition transactions > skips mismatched width geometry and enters without displacement
+Tab transition skipped: geometry changed
+
+ ✓ src/lib/system.test.ts (6 tests) 5ms
+ ✓ src/lib/docker.test.ts (6 tests) 2ms
+ ✓ src/lib/motion.test.ts (11 tests) 2ms
+stdout | src/app/useTabTransition.test.tsx > Tab transition transactions > skips mismatched top geometry and enters without displacement
+Tab transition skipped: geometry changed
+
+stdout | src/app/useTabTransition.test.tsx > Tab transition transactions > skips mismatched scroll geometry and enters without displacement
+Tab transition skipped: geometry changed
+
+ ✓ src/lib/api.test.ts (22 tests) 9ms
+stdout | src/app/useTabTransition.test.tsx > Tab transition transactions > retains geometry policy until a pending route commits
+Tab transition skipped: geometry changed
+
+ ✓ src/lib/docker-overview.test.ts (4 tests) 3ms
+ ✓ src/lib/network.test.ts (11 tests) 4ms
+stderr | src/app/useTabTransition.test.tsx > Tab transition transactions > retains hidden policy until a pending route commits
+An update to AppShell inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to AppShell inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/app/useTabTransition.test.tsx (40 tests) 7869ms
+   ✓ Tab transition transactions > cancels native visuals on an OS palette change without enabling reduced motion  370ms
+   ✓ Tab transition transactions > navigates once when native capture throw  411ms
+   ✓ Tab transition transactions > navigates once when native capture reject  410ms
+   ✓ Tab transition transactions > holds capture until a delayed target renders, then skips at the budget without renavigation  539ms
+   ✓ Tab transition transactions > ignores swipes during native animation but a Link interrupts it and stale finished cannot clear a new transaction  530ms
+   ✓ Tab transition transactions > uses directional entry when native api support is missing  375ms
+   ✓ Tab transition transactions > uses directional entry when native css support is missing  367ms
+   ✓ Tab transition transactions > retains deadline policy until a pending route commits  488ms
+ ✓ src/components/app/AppSheet.test.tsx (26 tests) 9448ms
+   ✓ snaps back a canceled downward gesture without dismissing  788ms
+   ✓ cancels an old held gesture before closing and reopening  832ms
+   ✓ closes after a right swipe in the body and restores focus and scrolling  897ms
+   ✓ discards a held body swipe across closing and reopening  820ms
+   ✓ does not reuse an old touch offset for a new mouse swipe after reopen  897ms
+   ✓ does not reuse an old touch offset for a new mouse swipe after preference change  884ms
+   ✓ closes after a fast right flick below the distance threshold  769ms
+   ✓ discards a primary touch swipe when a second finger starts  846ms
+ ✓ src/App.test.tsx (83 tests) 10028ms
+   ✓ primary tab gestures > reserves horizontal touch movement on main before Safari can take over scrolling  318ms
+   ✓ primary pages > keeps Home expansion across routes and polling, independently of the Docker fold  463ms
+
+ Test Files  35 passed (35)
+      Tests  479 passed (479)
+   Start at  23:18:56
+   Duration  15.44s (transform 2.26s, setup 0ms, collect 26.69s, tests 41.35s, environment 36.64s, prepare 6.66s)

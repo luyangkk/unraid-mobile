@@ -31,14 +31,13 @@ Home 只加载可见项目的图标，通过带认证 Header 的 fetch 创建临
 | `npm run build` | 通过，包含生产 PWA 校验；仍有主包大于 500 kB 的构建提示 |
 | `go test -race ./...` | 通过 |
 | `go build ./cmd/server` | 通过，二进制输出到临时目录 |
-| `go build ./cmd/host-spike` | 通过，二进制输出到临时目录；未在主机运行 Spike |
 | `git diff --check` | 通过 |
 | Unraid XML 解析 | 通过，模板未修改 |
-| `CGO_ENABLED=0 GOOS=linux go build` | server 与 host-spike 均通过，输出到临时目录 |
+| `CGO_ENABLED=0 GOOS=linux go build` | server 通过，输出到临时目录 |
 
 上述 Go 检查使用本机 Go 1.26.2；Dockerfile 中 Go 1.24 的容器构建未运行。
 
-测试日志：[前端](frontend-tests.log)、[Go race](go-race.log)、[生产构建](production-build.log)。
+测试日志：[前端](frontend-tests.log)、[生产构建](production-build.log)。历史 Go race 混合日志已移除，上表保留当日生产测试总结，未生成替代日志或作为当前测试结果。
 
 测试覆盖 Home 排序和八项限制、不修改共享快照、切页保留与重载重置、列表缩短后恢复、外观切换保留状态、加载与空／不可用／旧样本，以及图标认证、路径和软链接限制、大小预算、版本替换和移除、Blob 释放、旧请求取消和 401 通知。
 

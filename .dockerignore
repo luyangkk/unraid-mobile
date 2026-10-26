@@ -11,5 +11,4 @@ web/dist
 .codex
 .agents
 server
-host-spike
 coverage.out

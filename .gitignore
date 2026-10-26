@@ -6,7 +6,6 @@ node_modules/
 web/dist/
 *.tsbuildinfo
 /server
-/host-spike
 /coverage.out
 /.aws/
 /.codex/

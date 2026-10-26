@@ -18,8 +18,8 @@
 - 一个生产容器、一个 Go 进程同时提供 API 与嵌入的静态资源。Dockerfile 将 Vite 产物复制到 `cmd/server/web` 后编译；不手改 `web/dist` 或嵌入产物，生产不运行 Vite。
 - Go 仅对合法且无扩展名的 GET/HEAD 客户端路径回退到嵌入首页；`/assets` 下缺失文件、目录和非法路径返回真实 404。API 在静态路径校验前分流，health 保持 204。
 - PWA 固定使用 `/manifest.webmanifest`、`/sw.js` 和 `/icons/*.png`，scope 和 start URL 均为 `/`；启用 `APP_TOKEN` 后仍公开。Go 显式返回 manifest 的 `application/manifest+json` 和 worker 的 JavaScript MIME，`/sw.js` 使用 `Cache-Control: no-cache`；不能改变 API 认证、SSE 或静态路径校验边界。
-- 生产以 `deploy/unraid/unraid-mobile.xml` 为准：`Privileged=false`，只读挂载 `/proc → /host/proc`、`/sys → /host/sys`、`/var/local/emhttp → /host/var/local/emhttp`，Docker 展示可选挂载 `/var/run/docker.sock → /var/run/docker.sock:ro`。只读 socket 挂载不限制 API 权限，应用只能发送固定读取请求。`compose.yaml` 的高权限和额外挂载用于开发/Spike，不能作为生产权限模板。
-- `cmd/host-spike`、`internal/spike` 不属于生产请求链路。高权限 Spike 仅在用户明确授权的 Unraid 测试主机运行；`testdata/host` 保持合成数据，不替换为开发机或 CI 的真实数据。
+- 生产以 `deploy/unraid/unraid-mobile.xml` 为准：`Privileged=false`，只读挂载 `/proc → /host/proc`、`/sys → /host/sys`、`/var/local/emhttp → /host/var/local/emhttp`，Docker 展示可选挂载 `/var/run/docker.sock → /var/run/docker.sock:ro`。只读 socket 挂载不限制 API 权限，应用只能发送固定读取请求。`compose.yaml` 的高权限和额外挂载用于开发，不能作为生产权限模板。
+- 宿主机兼容性通过主应用只读页面/API 与 Unraid WebGUI 人工对照验收，步骤见 [README](README.md#manual-host-acceptance)。记录镜像版本、采样时间、模块可用性、diagnostics 和未验证场景；`/healthz` 仅证明进程存活，HTTP `200` 或旧样本不代表采集正常。实际挂载和权限另行核对，不通过取温度唤醒休眠盘，不把读取验收当作写能力授权。`testdata/host` 保持合成数据，不替换为开发机或 CI 的真实数据。
 
 ## 数据与 API
 
@@ -101,7 +101,7 @@
 
 | 范围 | 检查 |
 |---|---|
-| Go（仓库根目录） | `gofmt -w <修改文件>`；`go test -race ./...`；`go build ./cmd/server`；`go build ./cmd/host-spike` |
+| Go（仓库根目录） | `gofmt -w <修改文件>`；`go test -race ./...`；`go build ./cmd/server` |
 | 前端（`web` 目录） | `npm ci`；`npm test`；`npm run build`；同步更新 API/UI 行为的 Vitest 测试 |
 | 镜像/部署 | `docker build -t unraid-mobile:local .`；`sh scripts/verify-image.sh unraid-mobile:local`；`docker compose config`；下述 XML 校验 |
 

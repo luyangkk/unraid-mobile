@@ -2,7 +2,6 @@
   "kind": "existingDeploymentApiObservation",
   "observedAt": "2026-10-24T13:56:19.584978+00:00",
   "target": "http://10.0.0.66:18080/api/v1/",
-  "updatedSpikeExecuted": false,
   "system": {
     "timestamp": "2026-10-24T13:56:19.609704631Z",
     "available": true,

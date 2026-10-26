@@ -666,8 +666,11 @@ describe("primary pages", () => {
       expect(app.requests).toHaveLength(0);
       expect(streamSignal?.aborted).toBe(true);
       expect(app.host.textContent).toContain("Updates paused");
-      expect(app.host.querySelectorAll(".opacity-60")).toHaveLength(3);
-      expect(app.host.querySelectorAll(".text-stale-foreground")).toHaveLength(1);
+      const system = [...app.host.querySelectorAll("h2")].find((heading) => heading.textContent === "System")!.closest("section")!;
+      expect(system.classList.contains("text-stale-foreground")).toBe(true);
+      expect(system.querySelector(".text-stale-text-muted")).not.toBeNull();
+      expect(system.closest(".opacity-60")).toBeNull();
+      expect(system.querySelector(".bg-progress-fill")).not.toBeNull();
       hidden = false;
       await act(async () => document.dispatchEvent(new Event("visibilitychange")));
       await settle();

@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { AppHeader } from "../components/app/AppHeader";
 import { BottomNavigation } from "../components/app/BottomNavigation";
 import { getCapabilities } from "../lib/api";
+import type { CPUWindow } from "../lib/system";
 import { shouldRetryRequest } from "../lib/query";
 import { rootRoute } from "./router";
 import { PageDataContext, usePageActivity } from "./pageData";
@@ -15,6 +16,8 @@ import { TabEntryContext, useTabTransition } from "./useTabTransition";
 // AppShell stays mounted across routes so authentication, stream and trend persist.
 export function AppShell() {
   const [homeDockerExpanded, setHomeDockerExpanded] = useState(false);
+  const [cpuDetailsExpanded, setCPUDetailsExpanded] = useState(false);
+  const [cpuWindow, setCPUWindow] = useState<CPUWindow>(60);
   const main = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLElement>(null);
   const content = useRef<HTMLDivElement>(null);
@@ -31,7 +34,8 @@ export function AppShell() {
   const connection = !activity.online ? "offline" : !activity.foreground ? "paused" : system.connection;
   const disconnected = connection === "offline" || connection === "paused";
   return (
-    <PageDataContext.Provider value={{ system, ...activity, homeDockerExpanded, setHomeDockerExpanded }}>
+    <PageDataContext.Provider value={{ system, ...activity, homeDockerExpanded, setHomeDockerExpanded,
+      cpuDetailsExpanded, setCPUDetailsExpanded, cpuWindow, setCPUWindow }}>
       <div className="mx-auto flex min-h-dvh max-w-md flex-col px-5 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))] text-foreground">
         <AppHeader snapshot={system.snapshot} connection={connection} logout={logout} refresh={() => {
           system.refresh();

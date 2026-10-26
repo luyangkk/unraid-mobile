@@ -1,7 +1,8 @@
 import type { NetworkInterfaceSnapshot, SystemSnapshot } from "../../lib/api";
-import { formatBytes, formatRate, type Point } from "../../lib/system";
+import { filterCPUWindow, formatBytes, formatRate, type CPUWindow, type Point } from "../../lib/system";
 import { networkMaximum, trendSegments, type NetworkPoint, type TrendPoint } from "../../lib/network";
 import { NetworkInterfaceSelector } from "./NetworkInterfaceSelector";
+import { CPUDetails } from "./CPUDetails";
 
 // SystemPanel presents cached telemetry with independent status and metric colors.
 export function SystemPanel({
@@ -11,6 +12,11 @@ export function SystemPanel({
   onNetworkSelectionChange,
   selectedNetwork,
   networkPoints,
+  cpuDetailsExpanded = false,
+  onCPUDetailsExpandedChange,
+  cpuWindow = 60,
+  onCPUWindowChange,
+  stale = false,
 }: {
   snapshot: SystemSnapshot;
   points: Point[];
@@ -18,6 +24,11 @@ export function SystemPanel({
   onNetworkSelectionChange: (selection: string | null) => void;
   selectedNetwork: NetworkInterfaceSnapshot;
   networkPoints: NetworkPoint[];
+  cpuDetailsExpanded?: boolean;
+  onCPUDetailsExpandedChange?: (expanded: boolean) => void;
+  cpuWindow?: CPUWindow;
+  onCPUWindowChange?: (seconds: CPUWindow) => void;
+  stale?: boolean;
 }) {
   if (!snapshot.available)
     return (
@@ -40,30 +51,36 @@ export function SystemPanel({
       ? (100 * snapshot.memoryUsedBytes) / snapshot.memoryTotalBytes
       : 0;
   const maximum = networkMaximum(networkPoints);
+  const cpuPoints = filterCPUWindow(points, cpuWindow);
+  const muted = stale ? "text-stale-text-muted" : "text-text-muted";
   return (
-    <section className="min-w-0 rounded-2xl border border-border bg-surface p-5">
+    <section className={`min-w-0 rounded-2xl border border-border bg-surface p-5 ${stale ? "text-stale-foreground" : "text-foreground"}`}>
       <h2 className="text-lg font-semibold">System</h2>
       <div className="mt-5 grid grid-cols-2 gap-6">
         <div className="min-w-0">
-          <h3 className="text-sm text-text-muted">CPU</h3>
+          <h3 className={`text-sm ${muted}`}>CPU</h3>
           <p className="mt-1 text-3xl font-semibold tabular-nums">
             {snapshot.cpuUsage === null
               ? "—"
               : `${snapshot.cpuUsage.toFixed(1)}%`}
           </p>
-          <p className="mt-1 text-sm text-text-muted">
+          <p className={`mt-1 text-xs ${muted}`}>
+            CPU temperature{" "}
             {snapshot.cpuTemperature === null
-              ? "Temperature unavailable"
-              : `${snapshot.cpuTemperature.toFixed(1)} °C`}
+              ? "—"
+              : <span className="whitespace-nowrap">{snapshot.cpuTemperature.toFixed(1)} °C</span>}
           </p>
-          <Sparkline points={points} maximum={100} label="CPU usage over the latest 60 samples" />
+          <Sparkline points={cpuPoints} maximum={100} label={`CPU usage over the latest ${cpuWindow} seconds`} stale={stale} />
+          <p className={`mt-2 text-xs ${muted}`}>Last {cpuWindow}s</p>
+          {cpuPoints.length < 2 || Date.parse(cpuPoints.at(-1)!.timestamp) - Date.parse(cpuPoints[0].timestamp) < (cpuWindow - 1) * 1000
+            ? <p className={`mt-1 text-xs ${muted}`}>Collecting history…</p> : null}
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm text-text-muted">Memory</h3>
+          <h3 className={`text-sm ${muted}`}>Memory</h3>
           <p className="mt-1 text-3xl font-semibold tabular-nums">
             {percent.toFixed(1)}%
           </p>
-          <p className="mt-1 text-xs text-text-muted">
+          <p className={`mt-1 text-xs ${muted}`}>
             {formatBytes(snapshot.memoryUsedBytes)} /{" "}
             {formatBytes(snapshot.memoryTotalBytes)}
           </p>
@@ -75,6 +92,8 @@ export function SystemPanel({
           </div>
         </div>
       </div>
+      <CPUDetails snapshot={snapshot} expanded={cpuDetailsExpanded} onExpandedChange={onCPUDetailsExpandedChange}
+        window={cpuWindow} onWindowChange={onCPUWindowChange} stale={stale} />
       <div className="mt-5 min-w-0 border-t border-border pt-4">
         <div className="flex min-w-0 items-center justify-between gap-3">
           <h3 className="shrink-0 text-sm font-semibold">Network</h3>
@@ -86,19 +105,19 @@ export function SystemPanel({
         </p> : null}
         <div className="mt-4 grid min-w-0 grid-cols-2">
           <div className="min-w-0 border-r border-border pr-4">
-            <h4 className="text-xs text-text-muted">↓ Receive</h4>
-            <NetworkRate value={selectedNetwork.rxBytesPerSecond} />
+            <h4 className={`text-xs ${muted}`}>↓ Receive</h4>
+            <NetworkRate value={selectedNetwork.rxBytesPerSecond} stale={stale} />
             <Sparkline points={networkPoints.map((point) => ({ timestamp: point.timestamp, value: point.rx }))}
-              maximum={maximum} label="Receive rate over the latest 60 seconds" network />
+              maximum={maximum} label="Receive rate over the latest 60 seconds" network stale={stale} />
           </div>
           <div className="min-w-0 pl-4">
-            <h4 className="text-xs text-text-muted">↑ Transmit</h4>
-            <NetworkRate value={selectedNetwork.txBytesPerSecond} />
+            <h4 className={`text-xs ${muted}`}>↑ Transmit</h4>
+            <NetworkRate value={selectedNetwork.txBytesPerSecond} stale={stale} />
             <Sparkline points={networkPoints.map((point) => ({ timestamp: point.timestamp, value: point.tx }))}
-              maximum={maximum} label="Transmit rate over the latest 60 seconds" network />
+              maximum={maximum} label="Transmit rate over the latest 60 seconds" network stale={stale} />
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs text-text-muted">
+        <div className={`mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs ${muted}`}>
           <span className="shrink-0">Last 60s</span>
           <span>Sample <time className="tabular-nums" dateTime={snapshot.timestamp}>
             {snapshot.timestamp.replace("T", " ").replace(/(?:\.\d+)?Z$/, " UTC")}
@@ -106,7 +125,7 @@ export function SystemPanel({
         </div>
       </div>
       {Object.keys(snapshot.diagnostics).length > 0 ? (
-        <details className="mt-4 text-xs text-text-muted">
+        <details className={`mt-4 text-xs ${muted}`}>
           <summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">Unavailable metrics</summary>
           {Object.entries(snapshot.diagnostics).map(([key, value]) => (
             <p className="mt-2 break-words" key={key}>
@@ -120,21 +139,21 @@ export function SystemPanel({
 }
 
 // NetworkRate preserves the shared byte formatter while giving units a quieter hierarchy.
-function NetworkRate({ value }: { value: number | null }) {
+function NetworkRate({ value, stale }: { value: number | null; stale: boolean }) {
   const [number, unit] = formatRate(value).split(" ");
   return (
     <p className="mt-1 min-h-7 break-all text-xl font-semibold leading-7 tabular-nums">
-      {number}{unit ? <> <span className="whitespace-nowrap text-xs font-normal text-text-muted">{unit}</span></> : null}
+      {number}{unit ? <> <span className={`whitespace-nowrap text-xs font-normal ${stale ? "text-stale-text-muted" : "text-text-muted"}`}>{unit}</span></> : null}
     </p>
   );
 }
 
 // Sparkline draws unsmoothed timestamped segments using the shared theme token.
-function Sparkline({ points, maximum, label, network = false }: {
-  points: TrendPoint[]; maximum: number; label: string; network?: boolean;
+function Sparkline({ points, maximum, label, network = false, stale }: {
+  points: TrendPoint[]; maximum: number; label: string; network?: boolean; stale: boolean;
 }) {
   if (points.filter((point) => point.value !== null && Number.isFinite(point.value) && point.value >= 0).length < 2)
-    return <p className={`${network ? "mt-3 flex h-12 items-center" : "mt-4"} text-xs text-text-muted`}>Collecting trend…</p>;
+    return <p className={`mt-3 flex ${network ? "h-12" : "h-10"} items-center text-xs ${stale ? "text-stale-text-muted" : "text-text-muted"}`}>Collecting trend…</p>;
   const segments = trendSegments(points, maximum);
   return (
     <svg

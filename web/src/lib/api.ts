@@ -25,6 +25,12 @@ export type SystemSnapshot = {
   uptimeSeconds: number | null;
   cpuUsage: number | null;
   cpuTemperature: number | null;
+  cpuInfo?: {
+    model: string | null;
+    reportedFrequencyHz: number | null;
+    logicalCPUCount: number | null;
+  } | null;
+  cpuLogicalProcessors?: { id: number; usage: number | null; reason?: string }[];
   memoryUsedBytes: number;
   memoryTotalBytes: number;
   networkInterface: string;

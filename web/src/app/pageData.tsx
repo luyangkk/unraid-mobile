@@ -2,6 +2,7 @@ import { onlineManager, useQuery } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { getDocker, getStorage, getVMs } from "../lib/api";
 import { shouldRetryRequest } from "../lib/query";
+import type { CPUWindow } from "../lib/system";
 import type { useSystem } from "./useSystem";
 
 export const PageDataContext = createContext<{
@@ -10,6 +11,10 @@ export const PageDataContext = createContext<{
   online: boolean;
   homeDockerExpanded: boolean;
   setHomeDockerExpanded: (expanded: boolean) => void;
+  cpuDetailsExpanded: boolean;
+  setCPUDetailsExpanded: (expanded: boolean) => void;
+  cpuWindow: CPUWindow;
+  setCPUWindow: (seconds: CPUWindow) => void;
 } | null>(null);
 
 // subscribeVisibility observes page activity without introducing another state store.

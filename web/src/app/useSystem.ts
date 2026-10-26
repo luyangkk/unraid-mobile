@@ -52,11 +52,11 @@ export function useSystem() {
           }),
         };
       });
-      if (value.available && value.cpuUsage !== null) {
+      if (value.available) {
         setPoints((previous) => appendPoint(previous, {
-          timestamp: value.timestamp, value: value.cpuUsage!,
+          timestamp: value.timestamp, value: value.cpuUsage,
         }));
-      } else if (!value.available) setPoints([]);
+      } else setPoints([]);
     },
     onConnection: setConnection,
     onError: setError,

@@ -12,7 +12,8 @@ const entryClass = "flex min-h-11 items-center justify-end rounded-lg px-2 text-
 // HomePage shows complete System telemetry and compact resource overviews.
 export function HomePage() {
   useTabPageEntry("/");
-  const { system, foreground, online, homeDockerExpanded, setHomeDockerExpanded } = usePageData();
+  const { system, foreground, online, homeDockerExpanded, setHomeDockerExpanded,
+    cpuDetailsExpanded, setCPUDetailsExpanded, cpuWindow, setCPUWindow } = usePageData();
   const docker = useDockerSnapshot();
   const vms = useVMSnapshot();
   const storage = useStorageSnapshot();
@@ -23,9 +24,11 @@ export function HomePage() {
       {system.snapshot ? (
         <div>
           {systemStale ? <p role="status" className="mb-2 text-xs text-warning">Showing the last sample. Sampled <time dateTime={system.snapshot.timestamp}>{system.snapshot.timestamp}</time></p> : null}
-          <div className={systemStale ? "opacity-60" : ""}><SystemPanel snapshot={system.snapshot} points={system.points}
+          <SystemPanel snapshot={system.snapshot} points={system.points} stale={systemStale}
+            cpuDetailsExpanded={cpuDetailsExpanded} onCPUDetailsExpandedChange={setCPUDetailsExpanded}
+            cpuWindow={cpuWindow} onCPUWindowChange={setCPUWindow}
             networkSelection={system.networkSelection} onNetworkSelectionChange={system.setNetworkSelection}
-            selectedNetwork={system.selectedNetwork!} networkPoints={system.networkPoints} /></div>
+            selectedNetwork={system.selectedNetwork!} networkPoints={system.networkPoints} />
         </div>
       ) : <LoadingPanel title="System" message="Connecting to the server…" />}
       <div>

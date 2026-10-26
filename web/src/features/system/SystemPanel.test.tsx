@@ -133,3 +133,52 @@ it("contains long names and extreme rates inside shrinkable network columns", ()
   expect(host.querySelector('svg[aria-label*="Receive"]')).not.toBeNull();
   expect(host.querySelector('svg[aria-label*="Transmit"]')).not.toBeNull();
 });
+
+it("labels CPU temperature and selected history, with equal-height collecting and SVG states", () => {
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(<SystemPanel snapshot={sample} points={[]} {...networkProps} />);
+  const cpu = [...host.querySelectorAll("h3")].find((title) => title.textContent === "CPU")!.parentElement!;
+  expect(cpu.textContent).toContain("CPU temperature");
+  expect(cpu.textContent).toContain("Last 60s");
+  const placeholder = [...cpu.querySelectorAll("p")].find((node) => node.textContent === "Collecting trend…")!;
+  expect(placeholder.classList.contains("h-10")).toBe(true);
+  expect(placeholder.classList.contains("mt-3")).toBe(true);
+  host.innerHTML = renderToStaticMarkup(<SystemPanel snapshot={sample} {...networkProps}
+    points={[
+      { timestamp: "2026-10-24T00:00:00Z", value: 25 },
+      { timestamp: "2026-10-24T00:00:01Z", value: 50 },
+    ]} {...{ cpuWindow: 10 }} />);
+  expect(host.querySelector('svg[aria-label*="CPU"]')?.classList.contains("h-10")).toBe(true);
+  expect(host.textContent).toContain("Last 10s");
+  expect(host.textContent).toContain("Collecting history…");
+});
+
+it("splits CPU null intervals and shows only the selected buffered window at a fixed percentage scale", () => {
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(<SystemPanel snapshot={sample} {...networkProps}
+    points={[
+      { timestamp: "2026-10-24T00:00:00Z", value: 99 },
+      { timestamp: "2026-10-24T00:00:50Z", value: 0 },
+      { timestamp: "2026-10-24T00:00:51Z", value: 50 },
+      { timestamp: "2026-10-24T00:00:52Z", value: null },
+      { timestamp: "2026-10-24T00:00:53Z", value: 100 },
+      { timestamp: "2026-10-24T00:00:54Z", value: 25 },
+      { timestamp: "2026-10-24T00:01:00Z", value: 20 },
+    ]} {...{ cpuWindow: 10 }} />);
+  expect([...host.querySelectorAll('svg[aria-label*="CPU"] polyline')].map((line) => line.getAttribute("points")))
+    .toEqual(["0.0,30.0 10.0,15.0", "30.0,0.0 40.0,22.5", "100.0,24.0"]);
+});
+
+it("marks only stale text while keeping SVG, memory bars and unavailable status colors clear", () => {
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(<SystemPanel snapshot={sample} {...networkProps}
+    points={[
+      { timestamp: "2026-10-24T00:00:00Z", value: 25 },
+      { timestamp: "2026-10-24T00:00:01Z", value: 50 },
+    ]} {...{ stale: true }} />);
+  expect(host.querySelector(".opacity-60")).toBeNull();
+  expect(host.querySelector(".text-stale-foreground")).not.toBeNull();
+  expect(host.querySelector(".text-stale-text-muted")).not.toBeNull();
+  expect(host.querySelector('svg[aria-label*="CPU"]')?.classList.contains("text-chart-line")).toBe(true);
+  expect(host.querySelector(".bg-progress-fill")).not.toBeNull();
+});

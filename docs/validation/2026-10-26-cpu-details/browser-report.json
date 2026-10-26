@@ -524,8 +524,22 @@
         "animations": []
       },
       "passed": true
+    },
+    {
+      "logicalCount": 4,
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "missingInteriorHistory": true,
+      "nullHistory": true,
+      "completeHistoryRecovery": true,
+      "sseCount": 1,
+      "passed": true
     }
   ],
   "errors": [],
-  "supplementalAt": "2026-10-26T15:21:12.845Z"
+  "supplementalAt": "2026-10-26T15:21:12.845Z",
+  "coverageAt": "2026-10-26T15:35:10.959Z"
 }

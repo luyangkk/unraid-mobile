@@ -73,10 +73,19 @@ bounded appendPoint and CPU window filtering; pass Shell preference props via co
 `docs/validation/2026-10-26-cpu-details.md` and required browser evidence.
 
 - [x] Update CPU contract/behavior documentation; keep optional source semantics explicit.
-- [ ] Run full Go/npm checks on integrated code and request independent review.
+- [x] Run full Go/npm checks on integrated code and request independent review.
 - [x] Inspect Dark/Light, 320px/landscape, 4/16/64 CPUs, keyboard disclosure/radios,
   refresh identity, offline windows, tab persistence and theme changes.
 - [x] Attempt Docker build/smoke/Compose/XML checks; report exact unavailable runtime.
 - [x] Read-only continuous native/live API comparison; distinguish deployed extension,
   native observations and untested mobile devices. Do not publish or deploy.
-- [ ] Resolve review findings, record actual evidence and remaining validation gaps.
+- [x] Resolve review findings, record actual evidence and remaining validation gaps.
+
+## Outstanding environment acceptance
+
+These remain unverified and are recorded separately from completed source checks:
+
+- [ ] Build/smoke-check an actual production image and validate Compose with Docker.
+- [ ] Deploy an authorized image containing the extension and continuously compare
+  new CPU fields, reported frequency semantics and CPU sensor provenance on Unraid.
+- [ ] Verify Android/iOS hardware, orientation changes and safe-area behavior.

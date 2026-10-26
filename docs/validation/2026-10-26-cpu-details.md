@@ -24,10 +24,10 @@ tests. The integrated source passed:
 | `go test -race ./...` | 14 packages passed; final controller run used cached results |
 | `go build -o /tmp/unraid-cpu-check/server ./cmd/server` | Passed |
 | `npm ci` | Passed; manifest and lockfile unchanged |
-| `npm test` | 35 files, 479 tests passed |
+| `npm test` | 35 files, 504 tests passed |
 | `npm run build` | TypeScript, Vite, injectManifest and PWA checks passed |
 | `git diff --check` | Passed |
-| Impeccable detector, changed presentation files | No findings (`[]`) |
+| Impeccable detector, changed presentation files | No findings (`[]`); run before the final coverage-only predicate fix |
 
 The [final frontend output](2026-10-26-cpu-details/frontend-final.log) records
 the controller's post-fix full run. Focused tests also cover model/frequency
@@ -38,8 +38,8 @@ The local toolchain is Go 1.26.2 on darwin/amd64; Go 1.24 is not separately test
 The frontend baseline passed 459 tests in 33 files. It already emitted React
 `act` warnings in `useTabTransition.test.tsx`; dependency installation already
 reported deprecations and audit findings. These are baseline observations.
-Final tests retain the existing `act` warnings. The final main chunk is 657.43 kB
-minified / 209.15 kB gzip, above Vite's 500 kB warning threshold. A fresh read-only
+Final tests retain the existing `act` warnings. The final main chunk is 657.58 kB
+minified / 209.21 kB gzip, above Vite's 500 kB warning threshold. A fresh read-only
 audit reports five findings: `@vitest/mocker` moderate, `source-map-js` and `vite`
 high, `tinypool` and `vitest` critical. These locked dependencies were not changed.
 Audit severity labels do not establish exposure in the production Go container.
@@ -53,7 +53,7 @@ persistence, offline selection and one SSE. All twelve layout combinations plus
 an old-API response passed. A supplemental 390px check with normal motion enabled
 passed: expand/collapse, sample updates and radio changes do not start Tab
 animations, and collapse retains the selected window. The complete result is
-**14 checks passed, no page errors**, using Chrome 155.0.8059.86:
+**15 checks passed, no page errors**, using Chrome 155.0.8059.86:
 [browser measurements](2026-10-26-cpu-details/browser-report.json).
 
 Every matrix case verifies Enter disclosure focus, native radio arrow keys,
@@ -63,6 +63,10 @@ return and offline window selection were also exercised. The fixture includes
 100.0%, real zero, unknown per-CPU usage and an intentionally long synthetic model.
 The screenshots retain actual production assets, including existing PWA UI.
 These viewport simulations do not replace Android/iOS acceptance.
+The final selective browser check also verifies long missing intervals and null
+aggregate samples keep `Collecting history…`, complete retained history removes
+it, and recovery keeps the same single stream. The previous fourteen unaffected
+cases were retained rather than rerun.
 
 Representative captures:
 [Dark, 320px, 4 CPUs](2026-10-26-cpu-details/dark-320-4.png),
@@ -76,7 +80,14 @@ Frontend review found one Important omission: sampling time was absent inside
 expanded CPU details. Test-first correction added it before the facts/rows;
 focused re-review approved the fix. The local time keeps original `dateTime`,
 UTC display, stale tokens and DOM identity during refresh/offline/recovery.
-Whole-branch review will be recorded after the final documentation commit.
+The [whole-branch review](2026-10-26-cpu-details/branch-review.md) found no
+Critical/Important defects. Its Minor M3 exposed span-only completeness despite
+missing interior samples/nulls. A [test-first fix](2026-10-26-cpu-details/coverage-fix.md)
+requires usable values and no interval beyond the existing 3000ms gap threshold,
+while preserving the one-slot span allowance and full-duration filtering.
+[Scoped final re-review](2026-10-26-cpu-details/coverage-review.md) approved that
+fix with no new Critical/Important findings. The controller then passed all 504
+frontend tests and the fifteenth browser case. M1/M2 remain deferred maintenance.
 
 ## Live reference observations
 
@@ -130,3 +141,13 @@ changes and platform rendering remain unverified.
   span: 60 samples at 1 Hz span 59 seconds. Actual filtering still uses the full
   selected duration. If this sampling assumption differs, the collecting label
   can become complete up to one second early; it does not change retained data.
+- Keep M1 test synchronization and M2 bundle profiling outside this feature.
+  Their inherited warning/performance uncertainty remains until separate work
+  addresses them. The same applies to unchanged dependency-advisory maintenance.
+
+The final review's excluded judgments are explicit in its report: real-host
+compatibility/sensors, image/mount/runtime acceptance, physical devices, separate
+Go 1.24/Linux execution, complete advisory exploitability and measured startup
+performance were not established. Numerical contrast thresholds remain waived
+by the current project rules. Physical-core topology, per-CPU history, durable
+telemetry, multi-host support and write controls remain outside this scope.
